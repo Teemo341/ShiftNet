@@ -1,7 +1,7 @@
 .idea/
 .DS_Store
 
-training/
+data/
 lightning_logs/
 image_log/
 
