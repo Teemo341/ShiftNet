@@ -10,7 +10,7 @@ We hope that after you read this page, you will find that training a ControlNet 
 
 Let us take a look at a very simple task to control SD to fill color in circles.
 
-![p](../github_page/t1.png)
+![p](./github_page/t1.png)
 
 This is simple: we want to control SD to fill a circle with colors, and the prompt contains some description of our target.
 
@@ -28,15 +28,15 @@ Just download the Fill50K dataset from [our huggingface page](https://huggingfac
 
 In the folder "fill50k/source", you will have 50k images of circle lines.
 
-![p](../github_page/t2.png)
+![p](./github_page/t2.png)
 
 In the folder "fill50k/target", you will have 50k images of filled circles.
 
-![p](../github_page/t3.png)
+![p](./github_page/t3.png)
 
 In the "fill50k/prompt.json", you will have their filenames and prompts. Each prompt is like "a balabala color circle in some other color background."
 
-![p](../github_page/t4.png)
+![p](./github_page/t4.png)
 
 ## Step 2 - Load the dataset
 
@@ -123,7 +123,7 @@ Then you need to decide which Stable Diffusion Model you want to control. In thi
 
 Then you need to attach a control net to the SD model. The architecture is 
 
-![img](../github_page/sd.png)
+![img](./github_page/sd.png)
 
 Note that all weights inside the ControlNet are also copied from SD so that no layer is trained from scratch, and you are still finetuning the entire model.
 
@@ -139,7 +139,7 @@ You may also use other filenames as long as the command is "python tool_add_cont
 
 This is the correct output from my machine:
 
-![img](../github_page/t5.png)
+![img](./github_page/t5.png)
 
 ## Step 4 - Train!
 
@@ -207,19 +207,19 @@ The training is fast. After 4000 steps (batch size 4, learning rate 1e-5, about 
 
 Control:
 
-![img](../github_page/t/ip.png)
+![img](./github_page/t/ip.png)
 
 Prompt:
 
-![img](../github_page/t/t.png)
+![img](./github_page/t/t.png)
 
 Prediction:
 
-![img](../github_page/t/op.png)
+![img](./github_page/t/op.png)
 
 Ground Truth:
 
-![img](../github_page/t/gt.png)
+![img](./github_page/t/gt.png)
 
 Note that the SD's capability is preserved. Even training on this super aligned dataset, it still draws some random textures and those snow decorations. (Besides, note that the ground truth looks a bit modified because it is converted from SD's latent image.)
 
@@ -237,7 +237,7 @@ Beyond standard things, we also provide two important parameters "sd_locked" and
 
 By default, only_mid_control is False. When it is True, you will train the below architecture.
 
-![img](../github_page/t6.png)
+![img](./github_page/t6.png)
 
 This can be helpful when your computation power is limited and want to speed up the training, or when you want to facilitate the "global" context learning. Note that sometimes you may pause training, set it to True, resume training, and pause again, and set it again, and resume again. 
 
@@ -247,7 +247,7 @@ If your computation device is good, perhaps you do not need this. But I also kno
 
 By default, sd_locked is True. When it is False, you will train the below architecture.
 
-![img](../github_page/t7.png)
+![img](./github_page/t7.png)
 
 This will unlock some layers in SD and you will train them as a whole.
 
@@ -261,7 +261,7 @@ Also, if you unlock some original layers, you may want a lower learning rate, li
 
 ## More Consideration: Sudden Converge Phenomenon and Gradient Accumulation
 
-![img](../github_page/ex1.jpg)
+![img](./github_page/ex1.jpg)
 
 Because we use zero convolutions, the SD should always be able to predict meaningful images. (If it cannot, the training has already failed.)
 
