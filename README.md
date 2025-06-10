@@ -38,7 +38,7 @@ Note that our official support for “Multi-ControlNet” is A1111-only. Please 
 
 Starting from ControlNet 1.1, we begin to use the Standard ControlNet Naming Rules (SCNNRs) to name all models. We hope that this naming rule can improve the user experience.
 
-![img](github_docs/imgs/spec.png)
+![img](docs/imgs/spec.png)
 
 ControlNet 1.1 include 14 models (11 production-ready models and 3 experimental models):
 
@@ -86,7 +86,7 @@ Acceptable Preprocessors: Depth_Midas, Depth_Leres, Depth_Zoe. This model is hig
 
 Non-cherry-picked batch test with random seed 12345 ("a handsome man"):
 
-![img](github_docs/imgs/depth_1.png)
+![img](docs/imgs/depth_1.png)
 
 **Update**
 
@@ -118,11 +118,11 @@ Note that this method is much more reasonable than the normal-from-midas method 
 
 Non-cherry-picked batch test with random seed 12345 ("a man made of flowers"):
 
-![img](github_docs/imgs/normal_1.png)
+![img](docs/imgs/normal_1.png)
 
 Non-cherry-picked batch test with random seed 12345 ("room"):
 
-![img](github_docs/imgs/normal_2.png)
+![img](docs/imgs/normal_2.png)
 
 **Improvements in Normal 1.1:**
 
@@ -148,7 +148,7 @@ We fixed several problems in previous training datasets.
 
 Non-cherry-picked batch test with random seed 12345 ("dog in a room"):
 
-![img](github_docs/imgs/canny_1.png)
+![img](docs/imgs/canny_1.png)
 
 **Improvements in Canny 1.1:**
 
@@ -175,7 +175,7 @@ We fixed several problems in previous training datasets. The model is resumed fr
 
 Non-cherry-picked batch test with random seed 12345 ("room"):
 
-![img](github_docs/imgs/mlsd_1.png)
+![img](docs/imgs/mlsd_1.png)
 
 **Improvements in MLSD 1.1:**
 
@@ -205,11 +205,11 @@ We fixed several problems in previous training datasets. The model is resumed fr
 
 Non-cherry-picked batch test with random seed 12345 ("man in library"):
 
-![img](github_docs/imgs/scribble_1.png)
+![img](docs/imgs/scribble_1.png)
 
 Non-cherry-picked batch test with random seed 12345 (interactive, "the beautiful landscape"):
 
-![img](github_docs/imgs/scribble_2.png)
+![img](docs/imgs/scribble_2.png)
 
 **Improvements in Scribble 1.1:**
 
@@ -245,7 +245,7 @@ Considering the trade-off, we recommend to use SoftEdge_PIDI by default. In most
 
 Non-cherry-picked batch test with random seed 12345 ("a handsome man"):
 
-![img](github_docs/imgs/softedge_1.png)
+![img](docs/imgs/softedge_1.png)
 
 **Improvements in Soft Edge 1.1:**
 
@@ -271,11 +271,11 @@ Now the model can receive both type of ADE20K or COCO annotations. We find that 
 
 Non-cherry-picked batch test with random seed 12345 (ADE20k protocol, "house"):
 
-![img](github_docs/imgs/seg_1.png)
+![img](docs/imgs/seg_1.png)
 
 Non-cherry-picked batch test with random seed 12345 (COCO protocol, "house"):
 
-![img](github_docs/imgs/seg_2.png)
+![img](docs/imgs/seg_2.png)
 
 **Improvements in Segmentation 1.1:**
 
@@ -311,11 +311,11 @@ You can try with the demo:
 
 Non-cherry-picked batch test with random seed 12345 ("man in suit"):
 
-![img](github_docs/imgs/openpose_1.png)
+![img](docs/imgs/openpose_1.png)
 
 Non-cherry-picked batch test with random seed 12345 (multiple people in the wild, "handsome boys in the party"):
 
-![img](github_docs/imgs/openpose_2.png)
+![img](docs/imgs/openpose_2.png)
 
 **Improvements in Openpose 1.1:**
 
@@ -337,15 +337,15 @@ This model is trained on awacke1/Image-to-Line-Drawings. The preprocessor can ge
 
 Non-cherry-picked batch test with random seed 12345 (detailed lineart extractor, "bag"):
 
-![img](github_docs/imgs/lineart_1.png)
+![img](docs/imgs/lineart_1.png)
 
 Non-cherry-picked batch test with random seed 12345 (coarse lineart extractor, "Michael Jackson's concert"):
 
-![img](github_docs/imgs/lineart_2.png)
+![img](docs/imgs/lineart_2.png)
 
 Non-cherry-picked batch test with random seed 12345 (use manually drawn linearts, "wolf"):
 
-![img](github_docs/imgs/lineart_3.png)
+![img](docs/imgs/lineart_3.png)
 
 
 ## ControlNet 1.1 Anime Lineart
@@ -374,15 +374,15 @@ Demo:
 
 Non-cherry-picked batch test with random seed 12345 ("1girl, in classroom, skirt, uniform, red hair, bag, green eyes"):
 
-![img](github_docs/imgs/anime_3.png)
+![img](docs/imgs/anime_3.png)
 
 Non-cherry-picked batch test with random seed 12345 ("1girl, saber, at night, sword, green eyes, golden hair, stocking"):
 
-![img](github_docs/imgs/anime_4.png)
+![img](docs/imgs/anime_4.png)
 
 Non-cherry-picked batch test with random seed 12345 (extracted line drawing, "1girl, Castle, silver hair, dress, Gemstone, cinematic lighting, mechanical hand, 4k, 8k, extremely detailed, Gothic, green eye"):
 
-![img](github_docs/imgs/anime_6.png)
+![img](docs/imgs/anime_6.png)
 
 ## ControlNet 1.1 Shuffle
 
@@ -396,11 +396,11 @@ Demo:
 
     python gradio_shuffle.py
 
-The model is trained to reorganize images. [We use a random flow to shuffle the image and control Stable Diffusion to recompose the image.](github_docs/annotator.md#content-reshuffle)
+The model is trained to reorganize images. [We use a random flow to shuffle the image and control Stable Diffusion to recompose the image.](docs/annotator.md#content-reshuffle)
 
 Non-cherry-picked batch test with random seed 12345 ("hong kong"):
 
-![img](github_docs/imgs/shuffle_1.png)
+![img](docs/imgs/shuffle_1.png)
 
 In the 6 images on the right, the left-top one is the "shuffled" image. All others are outputs.
 
@@ -414,11 +414,11 @@ This is a pure ControlNet.
 
 Non-cherry-picked batch test with random seed 12345 ("iron man"):
 
-![img](github_docs/imgs/shuffle_2.png)
+![img](docs/imgs/shuffle_2.png)
 
 Non-cherry-picked batch test with random seed 12345 ("spider man"):
 
-![img](github_docs/imgs/shuffle_3.png)
+![img](docs/imgs/shuffle_3.png)
 
 **Multi-ControlNets** (A1111-only)
 
@@ -468,15 +468,15 @@ Also, it seems that instructions like "make it into X" works better than "make Y
 
 Non-cherry-picked batch test with random seed 12345 ("make it on fire"):
 
-![img](github_docs/imgs/ip2p_1.png)
+![img](docs/imgs/ip2p_1.png)
 
 Non-cherry-picked batch test with random seed 12345 ("make it winter"):
 
-![img](github_docs/imgs/ip2p_2.png)
+![img](docs/imgs/ip2p_2.png)
 
 We mark this model as "experimental" because it sometimes needs cherry-picking. For example, here is non-cherry-picked batch test with random seed 12345 ("make he iron man"):
 
-![img](github_docs/imgs/ip2p_3.png)
+![img](docs/imgs/ip2p_3.png)
 
 
 ## ControlNet 1.1 Inpaint
@@ -498,7 +498,7 @@ Some notices:
 
 Non-cherry-picked batch test with random seed 12345 ("a handsome man"):
 
-![img](github_docs/imgs/inpaint_after_fix.png)
+![img](docs/imgs/inpaint_after_fix.png)
 
 See also the Guidelines for [Using ControlNet Inpaint in Automatic 1111](https://github.com/Mikubill/sd-webui-controlnet/discussions/1143).
 
@@ -529,7 +529,7 @@ Below is an example of 8x super resolution. This is a 64x64 dog image.
 
 Non-cherry-picked batch test with random seed 12345 ("dog on grassland"):
 
-![img](github_docs/imgs/tile_new_1.png)
+![img](docs/imgs/tile_new_1.png)
 
 Note that this model is not a super resolution model. It ignores the details in an image and generate new details. This means you can use it to fix bad details in an image.
 
@@ -539,13 +539,13 @@ For example, below is a dog image corrupted by Real-ESRGAN. This is a typical ex
 
 Non-cherry-picked batch test with random seed 12345 ("dog on grassland"):
 
-![img](github_docs/imgs/tile_new_2.png)
+![img](docs/imgs/tile_new_2.png)
 
 If your image already have good details, you can still use this model to replace image details. Note that Stable Diffusion's I2I can achieve similar effects but this model make it much easier for you to maintain the overall structure and only change details even with denoising strength 1.0 .
 
 Non-cherry-picked batch test with random seed 12345 ("Silver Armor"):
 
-![img](github_docs/imgs/tile_new_3.png)
+![img](docs/imgs/tile_new_3.png)
 
 More and more people begin to think about different methods to diffuse at tiles so that images can be very big (at 4k or 8k). 
 
@@ -559,7 +559,7 @@ ControlNet Tile can solve this problem. For a given tile, it recognizes what is 
 
 Non-cherry-picked batch test with random seed 12345 ("a handsome man"):
 
-![img](github_docs/imgs/tile_new_4.png)
+![img](docs/imgs/tile_new_4.png)
 
 You can see that the prompt is "a handsome man" but the model does not paint "a handsome man" on that tree leaves. Instead, it recognizes the tree leaves paint accordingly.
 
@@ -617,4 +617,4 @@ From https://github.com/Mikubill/sd-webui-controlnet/discussions/1142#discussion
 
 We provide simple python scripts to process images.
 
-[See a gradio example here](github_docs/annotator.md).
+[See a gradio example here](docs/annotator.md).

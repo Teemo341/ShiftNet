@@ -13,21 +13,19 @@ from ldm.modules.attention import SpatialTransformer
 from ldm.modules.diffusionmodules.openaimodel import UNetModel, TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
 from ldm.models.diffusion.ddpm import LatentDiffusion, disabled_train
 from ldm.util import log_txt_as_img, exists, instantiate_from_config
+from cldm.cldm import ControlLDM
 from shiftdm.ddim_hacked import DDIMSampler
 
-
-class diffusion_example(LatentDiffusion):
-    """A simple example of a Latent Diffusion model
-    ShiftNet can inherit any diffusion model with the following methods
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+parent_diffusers = {"ldm": LatentDiffusion, 'cldm': ControlLDM}
 
 class ShiftLDM(LatentDiffusion):
-    """ ShiftNet can inherit any diffusion model """
+    """ ShiftNet can inherit any diffusion model
+        some may have different implementations, but it would be easy to adapt"""
 
-    def __init__(self, shift_stage_config, shift_stage_key:list[str]=[], shift_stage_scale:float = 1.0, sd_locked:bool = True, *args, **kwargs):
+    def __init__(self, shift_stage_config, shift_stage_key:list[str]=[], shift_stage_scale:float = 1.0, parent_model = 'ldm', sd_locked:bool = True, *args, **kwargs):
+        assert parent_model in parent_diffusers, f"parent model must be one of {list(parent_diffusers.keys())}"
+        if parent_model != 'ldm':
+            self.__class__.__bases__ = (parent_diffusers[parent_model],)  # change the parent class to the specified model
         super().__init__(*args, **kwargs)
         self.instantiate_shift_stage(shift_stage_config)
         self.shift_stage_key = shift_stage_key
@@ -38,6 +36,8 @@ class ShiftLDM(LatentDiffusion):
     # Instantiate the shift stage model from the config
     def instantiate_shift_stage(self, config):
         self.shift_stage_model = instantiate_from_config(config)
+        if exists(self.shift_stage_model.decoder):
+            self.shift_stage_model.decoder = None  # remove decoder to save memory, only need the encoder
     def encode_shift_stage(self, x_dict: dict):
         return self.shift_stage_model.encode(x_dict) # enable multi shift stage encoding, return a latent same shape as z
     def get_shift_stage_encoding(self, encoder_posterior):
