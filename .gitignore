@@ -1,7 +1,7 @@
 .idea/
 .DS_Store
 
-data/
+/data
 lightning_logs/
 image_log/
 
