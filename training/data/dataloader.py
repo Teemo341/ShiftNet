@@ -5,7 +5,6 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader, Dataset
 from functools import partial
 
-
 from ldm.data.base import Txt2ImgIterableBaseDataset
 from ldm.util import instantiate_from_config
 

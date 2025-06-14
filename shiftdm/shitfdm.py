@@ -39,9 +39,9 @@ class ShiftLDM(LatentDiffusion):
         if exists(self.shift_stage_model.decoder):
             self.shift_stage_model.decoder = None  # remove decoder to save memory, only need the encoder
     def encode_shift_stage(self, x_dict: dict):
-        return self.shift_stage_model.encode(x_dict) # enable multi shift stage encoding, return a latent same shape as z
+        return self.shift_stage_model.encode(x_dict, self.first_stage_model) # enable multi shift stage encoding, return a latent same shape as z
     def get_shift_stage_encoding(self, encoder_posterior):
-        return self.get_first_stage_encoding(encoder_posterior) # same as the first stage encoding
+        return self.get_first_stage_encoding(encoder_posterior) # same as the first stage encoding, apply self.scale_factor * z
     
     def get_mu_scale(self, t):
         """ At time t, mu_z_noised/ mu_z is um_scale. Shiftnet add the (1-mu_scale) to achieve constant scale.
