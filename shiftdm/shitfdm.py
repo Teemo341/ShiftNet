@@ -43,12 +43,12 @@ class ShiftLDM(LatentDiffusion):
     def get_shift_stage_encoding(self, encoder_posterior):
         return self.get_first_stage_encoding(encoder_posterior) # same as the first stage encoding, apply self.scale_factor * z
     
-    def get_mu_scale(self, t):
-        """ At time t, mu_z_noised/ mu_z is um_scale. Shiftnet add the (1-mu_scale) to achieve constant scale.
+    def get_shift_scale(self, t):
+        """ At time t, mu_z_noised/ mu_z is mu_scale. Shiftnet add the (1-mu_scale) to achieve constant scale.
         """
-        mu_scale = self.sqrt_alphas_cumprod[t] # In ddpm, mu_scale is sqrt_alphas_cumprod
+        shift_scale = 1- self.sqrt_alphas_cumprod[t] # In ddpm, mu_scale is sqrt_alphas_cumprod
 
-        return mu_scale
+        return shift_scale
 
     
     # get input, add the shift feature into the condition dict
@@ -80,8 +80,8 @@ class ShiftLDM(LatentDiffusion):
         # add shift to the input
         if 'shift' in cond and cond['shift'] is not None:
             z_shift = cond.pop('shift')
-            mu_scale = self.get_mu_scale(t)
-            z_shift = z_shift * (1.0-mu_scale) * self.shift_stage_scale
+            shift_scale = self.get_shift_scale(t)
+            z_shift = z_shift * shift_scale * self.shift_stage_scale
             x_noisy = x_noisy + z_shift # add shift to make mu constant
 
         if self.sd_locked: #TODO no sure if the no_grad is necessary and possible
@@ -89,13 +89,6 @@ class ShiftLDM(LatentDiffusion):
                 model_output = super().apply_model(x_noisy, t, cond, *args, **kwargs) # apply the model
         else:
             model_output = super().apply_model(x_noisy, t, cond, *args, **kwargs)
-
-        # remove the shift from output so that the output still follows the original model output
-        if z_shift is not None:
-            if isinstance(model_output, tuple):
-                model_output = (model_output[0] - z_shift, *model_output[1:])
-            else:
-                model_output = model_output - z_shift
 
         return model_output
     

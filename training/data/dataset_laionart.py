@@ -19,10 +19,9 @@ class LaionArt_Base(Dataset):
         self.top = top
         self.bottom = bottom
         self.size = size
-        self.interpolation = {"linear": PIL.Image.LINEAR,
-                              "bilinear": PIL.Image.BILINEAR,
-                              "bicubic": PIL.Image.BICUBIC,
-                              "lanczos": PIL.Image.LANCZOS,
+        self.interpolation = {"bilinear":Image.BILINEAR,
+                              "bicubic":Image.BICUBIC,
+                              "lanczos":Image.LANCZOS,
                               }[interpolation]
 
         metadata = self.get_metadata()
@@ -52,19 +51,17 @@ class LaionArt_Base(Dataset):
     
     def filer_train_val_test(self, metadata, split, split_rate):
         """filter metadata into train, val, test sets based on split rate"""
-        assert np.sum(split_rate) == 1, "split_rate must sum to 1"
-        split_num_1 = int(len(metadata) * split_rate[0])
-        split_num_2 = int(len(metadata) * (split_rate[0] + split_rate[1]))
-
-        import random
-        random.seed(42)  # for reproducibility
-        random.shuffle(metadata)
+        assert np.isclose(np.sum(split_rate), 1), "split_rate must sum to 1"
+        metadata = metadata.shuffle(seed=42)
+        n = len(metadata)
+        split_num_1 = int(n * split_rate[0])
+        split_num_2 = int(n * (split_rate[0] + split_rate[1]))
         if split == 'train':
-            return metadata[:split_num_1]
+            return metadata.select(range(0, split_num_1))
         elif split == 'val':
-            return metadata[split_num_1:split_num_2]
+            return metadata.select(range(split_num_1, split_num_2))
         elif split == 'test':
-            return metadata[split_num_2:]
+            return metadata.select(range(split_num_2, n))
         else:
             raise ValueError("split must be one of ['train', 'val', 'test']")
     
