@@ -13,7 +13,7 @@ LOG_FAILED = f"{DATA_DIR}/failed_downloads.txt"
 NUM_THREADS = 64
 
 START_IDX = 0
-END_IDX = 2_000_000
+END_IDX = 3_000_000
 LANGUAGES = ["en"]
 
 SUBSET_PATH = f"{DATA_DIR}/subset_metadata/top_{LANGUAGES}_{START_IDX}_{END_IDX}"
