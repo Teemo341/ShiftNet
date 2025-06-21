@@ -4,7 +4,7 @@ model:
   params:
     # ckpt_path:
     parent_model: ldm
-    shift_stage_key: ['shift']
+    shift_stage_key: ['hint']
     shift_stage_scale: 1.0
     base_locked: True 
     shift_stage_config:
@@ -107,5 +107,9 @@ lightning:
           plot_diffusion_rows : True
 
   trainer:
+    accelerator: auto
+    devices: auto
+    strategy: auto
+    precision: 16-mixed # 64, 32, 16-mixed, bf16-mixed
     benchmark: True
     max_epochs: 100

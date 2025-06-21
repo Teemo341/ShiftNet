@@ -44,17 +44,20 @@ class ShiftLDM(LatentDiffusion):
     def get_shift_scale(self, t):
         """ At time t, mu_z_noised/ mu_z is mu_scale. Shiftnet add the (1-mu_scale) to achieve constant scale.
         """
+        # sqrt_alphas_cumprod : [1000]
+        # t : [batch_size]
         shift_scale = 1- self.sqrt_alphas_cumprod[t] # In ddpm, mu_scale is sqrt_alphas_cumprod
 
-        return shift_scale
+        return shift_scale.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1) # (b, 1, 1, 1)
 
     
     # get input, add the shift feature into the condition dict
     def get_input(self, batch, k, return_shift=True, bs=None, *args, **kwargs):
         """enable unnoticeable implementation of get_input while add shift condition"""
         z, c = super().get_input(batch, k, bs=bs, *args, **kwargs)
+        if not isinstance(c, dict):
+            c = dict(c_crossattn=[c]) # must be dict as controlnet
         if return_shift:
-            assert isinstance(c, dict), "condition must be a dict"
             shift = {key: batch[key] for key in self.shift_stage_key}
             for key in shift:
                 if bs is not None:
@@ -82,11 +85,7 @@ class ShiftLDM(LatentDiffusion):
             z_shift = z_shift * shift_scale * self.shift_stage_scale
             x_noisy = x_noisy + z_shift # add shift to make mu constant
 
-        if self.base_locked: #TODO no sure if the no_grad is necessary and possible
-            with torch.no_grad():
-                model_output = super().apply_model(x_noisy, t, cond, *args, **kwargs) # apply the model
-        else:
-            model_output = super().apply_model(x_noisy, t, cond, *args, **kwargs)
+        model_output = super().apply_model(x_noisy, t, cond, *args, **kwargs)
 
         return model_output
     
