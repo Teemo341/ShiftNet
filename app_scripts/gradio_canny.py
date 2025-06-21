@@ -1,5 +1,4 @@
-from share import *
-import config
+import share
 
 import cv2
 import einops
@@ -54,14 +53,14 @@ def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_res
             seed = random.randint(0, 65535)
         seed_everything(seed)
 
-        if config.save_memory:
+        if share.save_memory:
             model.low_vram_shift(is_diffusing=False)
 
         cond = {"c_concat": [control], "c_crossattn": [model.get_learned_conditioning([prompt + ', ' + a_prompt] * num_samples)]}
         un_cond = {"c_concat": None if guess_mode else [control], "c_crossattn": [model.get_learned_conditioning([n_prompt] * num_samples)]}
         shape = (4, H // 8, W // 8)
 
-        if config.save_memory:
+        if share.save_memory:
             model.low_vram_shift(is_diffusing=True)
 
         model.control_scales = [strength * (0.825 ** float(12 - i)) for i in range(13)] if guess_mode else ([strength] * 13)
@@ -72,7 +71,7 @@ def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_res
                                                      unconditional_guidance_scale=scale,
                                                      unconditional_conditioning=un_cond)
 
-        if config.save_memory:
+        if share.save_memory:
             model.low_vram_shift(is_diffusing=False)
 
         x_samples = model.decode_first_stage(samples)

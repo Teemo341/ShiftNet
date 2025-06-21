@@ -110,7 +110,7 @@ def get_parser(**parser_kwargs):
         "--logdir",
         type=str,
         default="logs",
-        help="directory for logging dat shit",
+        help="directory for logging",
     )
     parser.add_argument(
         "--scale_lr",
@@ -177,6 +177,7 @@ if __name__ == "__main__":
     ckptdir = os.path.join(logdir, "checkpoints")
     cfgdir = os.path.join(logdir, "configs")
     seed_everything(opt.seed)
+
 
     try:
         # init and save configs

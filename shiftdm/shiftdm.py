@@ -1,16 +1,12 @@
-from typing import Union
+from typing import List
 
 import einops
 import torch
-import torch as th
-import torch.nn as nn
+
 from torch.optim.lr_scheduler import LambdaLR
 from einops import rearrange, repeat
 from torchvision.utils import make_grid
 
-from ldm.modules.diffusionmodules.util import conv_nd, linear, zero_module, timestep_embedding
-from ldm.modules.attention import SpatialTransformer
-from ldm.modules.diffusionmodules.openaimodel import UNetModel, TimestepEmbedSequential, ResBlock, Downsample, AttentionBlock
 from ldm.models.diffusion.ddpm import LatentDiffusion, disabled_train
 from ldm.util import log_txt_as_img, exists, instantiate_from_config
 from cldm.cldm import ControlLDM
@@ -22,7 +18,7 @@ class ShiftLDM(LatentDiffusion):
     """ ShiftNet can inherit any diffusion model
         some may have different implementations, but it would be easy to adapt"""
 
-    def __init__(self, shift_stage_config, shift_stage_key:list[str]=[], shift_stage_scale:float = 1.0, parent_model = 'ldm', sd_locked:bool = True, *args, **kwargs):
+    def __init__(self, shift_stage_config, shift_stage_key: List[str] = [], shift_stage_scale: float = 1.0, parent_model = 'ldm', base_locked: bool = True, *args, **kwargs):
         assert parent_model in parent_diffusers, f"parent model must be one of {list(parent_diffusers.keys())}"
         if parent_model != 'ldm':
             self.__class__.__bases__ = (parent_diffusers[parent_model],)  # change the parent class to the specified model
@@ -31,13 +27,15 @@ class ShiftLDM(LatentDiffusion):
         self.shift_stage_key = shift_stage_key
         assert len(self.shift_stage_key) > 0, "at least one shift stage key is required"
         self.shift_stage_scale = shift_stage_scale
-        self.sd_locked = sd_locked
+        self.base_locked = base_locked
 
     # Instantiate the shift stage model from the config
     def instantiate_shift_stage(self, config):
         self.shift_stage_model = instantiate_from_config(config)
         if exists(self.shift_stage_model.decoder):
             self.shift_stage_model.decoder = None  # remove decoder to save memory, only need the encoder
+        if exists(self.shift_stage_model.first_stage_model):
+            self.shift_stage_model.first_stage_model = None  # remove first stage model to save memory, only need the encoder
     def encode_shift_stage(self, x_dict: dict):
         return self.shift_stage_model.encode(x_dict, self.first_stage_model) # enable multi shift stage encoding, return a latent same shape as z
     def get_shift_stage_encoding(self, encoder_posterior):
@@ -84,7 +82,7 @@ class ShiftLDM(LatentDiffusion):
             z_shift = z_shift * shift_scale * self.shift_stage_scale
             x_noisy = x_noisy + z_shift # add shift to make mu constant
 
-        if self.sd_locked: #TODO no sure if the no_grad is necessary and possible
+        if self.base_locked: #TODO no sure if the no_grad is necessary and possible
             with torch.no_grad():
                 model_output = super().apply_model(x_noisy, t, cond, *args, **kwargs) # apply the model
         else:
@@ -177,7 +175,7 @@ class ShiftLDM(LatentDiffusion):
     def configure_optimizers(self):
         lr = self.learning_rate
         params = list(self.shift_stage_model.parameters())
-        if self.sd_locked:
+        if self.base_locked:
             self.model.eval()
             self.model.train = disabled_train # disable training for the main model
             for param in self.model.parameters():
@@ -203,12 +201,12 @@ class ShiftLDM(LatentDiffusion):
         if is_diffusing:
             self.model = self.model.cuda()
             self.control_model = self.control_model.cuda() if self.control_model is not None else None
-            self.first_stage_model = self.first_stage_model.cpu()
-            self.cond_stage_model = self.cond_stage_model.cpu()
-            self.shift_stage_model = self.shift_stage_model.cpu()
+            self.first_stage_model = self.first_stage_model.cpu() if self.first_stage_model is not None else None
+            self.cond_stage_model = self.cond_stage_model.cpu() if self.cond_stage_model is not None else None
+            self.shift_stage_model = self.shift_stage_model.cpu() if self.shift_stage_model is not None else None
         else:
             self.model = self.model.cpu()
             self.control_model = self.control_model.cpu() if self.control_model is not None else None
-            self.first_stage_model = self.first_stage_model.cuda()
-            self.cond_stage_model = self.cond_stage_model.cuda()
-            self.shift_stage_model = self.shift_stage_model.cuda()
+            self.first_stage_model = self.first_stage_model.cuda() if self.first_stage_model is not None else None
+            self.cond_stage_model = self.cond_stage_model.cuda() if self.cond_stage_model is not None else None
+            self.shift_stage_model = self.shift_stage_model.cuda() if self.shift_stage_model is not None else None

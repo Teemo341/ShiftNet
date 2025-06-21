@@ -10,5 +10,5 @@
 #SBATCH --gres=gpu:1
 
 python -u -m training.tool.check \
-    --sd_path1 ./models/sd/v1-5-pruned.ckpt \
-    --sd_path2 ./models/sd/v1-5-pruned_depth.ckpt \
+    --sd_path1 ./models/first_stage_models/kl-f8/model.ckpt \
+    --sd_path2 ./models/first_stage_models/kl-f8model_from_prun.ckpt \
