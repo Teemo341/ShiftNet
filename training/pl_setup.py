@@ -21,15 +21,15 @@ def prepare_training(opt:OmegaConf, config:OmegaConf, lightning_config:OmegaConf
                 "id": nowname,
             }
         },
-        "testtube": {
-            "target": "pytorch_lightning.loggers.TestTubeLogger",
+        "tensorboard": {
+            "target": "pytorch_lightning.loggers.TensorBoardLogger",
             "params": {
-                "name": "testtube",
+                "name": "tensorboard",
                 "save_dir": logdir,
             }
         },
     }
-    default_logger_cfg = default_logger_cfgs["testtube"]
+    default_logger_cfg = default_logger_cfgs["tensorboard"]
 
     # default model checkpoint configs
     default_modelckpt_cfg = {
@@ -66,7 +66,7 @@ def prepare_training(opt:OmegaConf, config:OmegaConf, lightning_config:OmegaConf
             }
         },
         "learning_rate_logger": {
-            "target": "training.callbacks.LearningRateMonitor",
+            "target": "pytorch_lightning.callbacks.LearningRateMonitor",
             "params": {
                 "logging_interval": "step",
                 # "log_momentum": True
@@ -118,8 +118,10 @@ def prepare_training(opt:OmegaConf, config:OmegaConf, lightning_config:OmegaConf
     callbacks_cfg = OmegaConf.merge(default_callbacks_cfg, callbacks_cfg)
     trainer_kwargs["callbacks"] = [instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg]
 
-    trainer_opt = OmegaConf.merge(trainer_opt, trainer_kwargs)
-    trainer = Trainer(**trainer_opt)
+    # Convert trainer_opt to dict and merge with trainer_kwargs
+    trainer_opt_dict = OmegaConf.to_container(trainer_opt, resolve=True)
+    trainer_opt_dict.update(trainer_kwargs)
+    trainer = Trainer(**trainer_opt_dict)
     print('Max training epoches: %s, max training steps: %s'%(trainer.max_epochs,trainer.max_steps))
     trainer.logdir = logdir  ###
 
@@ -133,5 +135,11 @@ def prepare_training(opt:OmegaConf, config:OmegaConf, lightning_config:OmegaConf
     print("#### Data #####")
     for k in data.datasets:
         print(f"{k}, {data.datasets[k].__class__.__name__}, {len(data.datasets[k])}")
+
+    # configure learning rate
+    base_lr = config.model.base_learning_rate
+    model.learning_rate = base_lr
+    print("++++ NOT USING LR SCALING ++++")
+    print(f"Setting learning rate to {model.learning_rate:.2e}")
 
     return model, data, trainer

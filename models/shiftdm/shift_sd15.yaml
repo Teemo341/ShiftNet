@@ -1,22 +1,25 @@
 model:
+  base_learning_rate: 2.0e-06
   target: shiftdm.shiftdm.ShiftLDM
   params:
+    # ckpt_path:
     parent_model: ldm
     shift_stage_key: ['shift']
     shift_stage_scale: 1.0
-    base_locked: True
-    ckpt_path: None
+    base_locked: True 
     shift_stage_config:
       target: shiftdm.shiftnet.shiftnet.ShiftNetBase
       params:
+        # ckpt_path: 
         target_key: jpg
         encoder_config:
-          target: shiftdm.shiftnet.encoders.single_encoder_base
+          target: shiftdm.shiftnet.encoders.fill50k_encoder
           params:
+            # ckpt_path: 
             encode_key: hint
-            ckpt_path: None
-        first_stage_config: None
-        ckpt_path: None
+            layers: 4
+            hidden_dim: 64
+        # first_stage_config:
 
 
     # SD parameters, do not change to load the pretrained model
@@ -86,7 +89,7 @@ data:
     wrap: False
     train:
       target: training.data.dataset_fill50k.fill50k
-      params: None
+      # params:
 
 lightning:
   callbacks:

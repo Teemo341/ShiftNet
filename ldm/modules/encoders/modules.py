@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
+import os
 
 from transformers import T5Tokenizer, T5EncoderModel, CLIPTokenizer, CLIPTextModel
 
@@ -57,10 +58,14 @@ def disabled_train(self, mode=True):
 
 class FrozenT5Embedder(AbstractEncoder):
     """Uses the T5 transformer encoder for text"""
-    def __init__(self, version="google/t5-v1_1-large", device="cuda", max_length=77, freeze=True):  # others are google/t5-v1_1-xl and google/t5-v1_1-xxl
+    def __init__(self, version="google/t5-v1_1-large", device="cuda", max_length=77, freeze=True, cache_dir=None):  # others are google/t5-v1_1-xl and google/t5-v1_1-xxl
         super().__init__()
-        self.tokenizer = T5Tokenizer.from_pretrained(version)
-        self.transformer = T5EncoderModel.from_pretrained(version)
+        # 统一使用 CACHE_DIR 目录
+        if cache_dir is None:
+            cache_dir = os.getenv('CACHE_DIR', os.path.expanduser('~/.cache'))
+        
+        self.tokenizer = T5Tokenizer.from_pretrained(version, cache_dir=cache_dir)
+        self.transformer = T5EncoderModel.from_pretrained(version, cache_dir=cache_dir)
         self.device = device
         self.max_length = max_length   # TODO: typical value?
         if freeze:
@@ -93,11 +98,16 @@ class FrozenCLIPEmbedder(AbstractEncoder):
         "hidden"
     ]
     def __init__(self, version="openai/clip-vit-large-patch14", device="cuda", max_length=77,
-                 freeze=True, layer="last", layer_idx=None):  # clip-vit-base-patch32
+                 freeze=True, layer="last", layer_idx=None, cache_dir=None):  # clip-vit-base-patch32
         super().__init__()
         assert layer in self.LAYERS
-        self.tokenizer = CLIPTokenizer.from_pretrained(version)
-        self.transformer = CLIPTextModel.from_pretrained(version)
+        # 统一使用 CACHE_DIR 目录
+        if cache_dir is None:
+            cache_dir = os.getenv('CACHE_DIR', os.path.expanduser('~/.cache'))
+        
+        # 确保 CLIP 模型优先保存到指定目录
+        self.tokenizer = CLIPTokenizer.from_pretrained(version, cache_dir=cache_dir, local_files_only=False)
+        self.transformer = CLIPTextModel.from_pretrained(version, cache_dir=cache_dir, local_files_only=False)
         self.device = device
         self.max_length = max_length
         if freeze:
@@ -141,9 +151,17 @@ class FrozenOpenCLIPEmbedder(AbstractEncoder):
         "penultimate"
     ]
     def __init__(self, arch="ViT-H-14", version="laion2b_s32b_b79k", device="cuda", max_length=77,
-                 freeze=True, layer="last"):
+                 freeze=True, layer="last", cache_dir=None):
         super().__init__()
         assert layer in self.LAYERS
+        # 统一使用 CACHE_DIR 目录
+        if cache_dir is None:
+            cache_dir = os.getenv('CACHE_DIR', os.path.expanduser('~/.cache'))
+        
+        # 设置环境变量让 OpenCLIP 使用统一缓存目录
+        os.environ['TRANSFORMERS_CACHE'] = cache_dir
+        os.environ['HF_HOME'] = cache_dir
+        
         model, _, _ = open_clip.create_model_and_transforms(arch, device=torch.device('cpu'), pretrained=version)
         del model.visual
         self.model = model
@@ -195,10 +213,10 @@ class FrozenOpenCLIPEmbedder(AbstractEncoder):
 
 class FrozenCLIPT5Encoder(AbstractEncoder):
     def __init__(self, clip_version="openai/clip-vit-large-patch14", t5_version="google/t5-v1_1-xl", device="cuda",
-                 clip_max_length=77, t5_max_length=77):
+                 clip_max_length=77, t5_max_length=77, cache_dir=None):
         super().__init__()
-        self.clip_encoder = FrozenCLIPEmbedder(clip_version, device, max_length=clip_max_length)
-        self.t5_encoder = FrozenT5Embedder(t5_version, device, max_length=t5_max_length)
+        self.clip_encoder = FrozenCLIPEmbedder(clip_version, device, max_length=clip_max_length, cache_dir=cache_dir)
+        self.t5_encoder = FrozenT5Embedder(t5_version, device, max_length=t5_max_length, cache_dir=cache_dir)
         print(f"{self.clip_encoder.__class__.__name__} has {count_params(self.clip_encoder)*1.e-6:.2f} M parameters, "
               f"{self.t5_encoder.__class__.__name__} comes with {count_params(self.t5_encoder)*1.e-6:.2f} M params.")
 

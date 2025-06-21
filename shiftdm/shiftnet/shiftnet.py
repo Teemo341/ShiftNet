@@ -147,6 +147,6 @@ class ShiftNetBase(pl.LightningModule):
         else:
             if not hasattr(self, f"colorize_{channel}"):
                 self.register_buffer(f"colorize_{channel}", torch.randn(3, channel, 1, 1).to(x))
-            x = F.conv2d(x, weight=self.colorize)
+            x = F.conv2d(x, weight=getattr(self, f"colorize_{channel}"))
             x = 2.*(x-x.min())/(x.max()-x.min()) - 1.
             return x

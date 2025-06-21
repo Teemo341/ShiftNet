@@ -32,9 +32,9 @@ class ShiftLDM(LatentDiffusion):
     # Instantiate the shift stage model from the config
     def instantiate_shift_stage(self, config):
         self.shift_stage_model = instantiate_from_config(config)
-        if exists(self.shift_stage_model.decoder):
+        if hasattr(self.shift_stage_model, 'decoder'):
             self.shift_stage_model.decoder = None  # remove decoder to save memory, only need the encoder
-        if exists(self.shift_stage_model.first_stage_model):
+        if hasattr(self.shift_stage_model, 'first_stage_model'):
             self.shift_stage_model.first_stage_model = None  # remove first stage model to save memory, only need the encoder
     def encode_shift_stage(self, x_dict: dict):
         return self.shift_stage_model.encode(x_dict, self.first_stage_model) # enable multi shift stage encoding, return a latent same shape as z
@@ -182,6 +182,9 @@ class ShiftLDM(LatentDiffusion):
                 param.requires_grad = False
         else:
             params += list(self.model.parameters())
+        if len(params) == 0:
+            print("No parameters to optimize")
+            return None
         opt = torch.optim.AdamW(params, lr=lr)
         if self.use_scheduler:
             assert 'target' in self.scheduler_config

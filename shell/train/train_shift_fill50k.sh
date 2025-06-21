@@ -9,4 +9,7 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --gres=gpu:1
 
+# set cache dir for downloading models
+export CACHE_DIR="./cache"
+
 python -u -m training.main  --base models/shiftdm/shift_sd15.yaml --train
