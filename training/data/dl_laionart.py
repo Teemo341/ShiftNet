@@ -13,7 +13,7 @@ LOG_FAILED = f"{DATA_DIR}/failed_downloads.txt"
 NUM_THREADS = 64
 
 START_IDX = 0
-END_IDX = 3_000_000
+END_IDX = 3_274_199
 LANGUAGES = ["en"]
 
 SUBSET_PATH = f"{DATA_DIR}/subset_metadata/top_{LANGUAGES}_{START_IDX}_{END_IDX}"
@@ -25,8 +25,12 @@ if os.path.exists(SUBSET_PATH):
 else:
     print("Loading laion-art dataset and generating subset...")
     ds = load_dataset("laion/laion-art", cache_dir=CACHE_DIR)
+    print(f"Dataset loaded with {len(ds['train'])} items.")
     print(f"Filtering languages: {LANGUAGES}")
     filtered = ds['train'].filter(lambda x: x['LANGUAGE'] in LANGUAGES)
+    print(f"Filtered dataset contains {len(filtered)} items.")
+    if len(filtered) < END_IDX:
+        raise ValueError(f"Filtered dataset has only {len(filtered)} items, which is less than END_IDX ({END_IDX}). Please adjust START_IDX and END_IDX.")
     print(f"Selecting from {START_IDX} to {END_IDX} (total {END_IDX-START_IDX})...")
     subset = filtered.sort('aesthetic', reverse=True).select(range(START_IDX, END_IDX))
     print(f"Selected {len(subset)} items. Saving subset to disk...")
