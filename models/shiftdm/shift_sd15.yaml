@@ -110,6 +110,6 @@ lightning:
     accelerator: auto
     devices: auto
     strategy: auto
-    precision: 16-mixed # 64, 32, 16-mixed, bf16-mixed
+    precision: 32 # 64, 32, 16-mixed, bf16-mixed
     benchmark: True
     max_epochs: 100
