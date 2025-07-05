@@ -1,0 +1,9 @@
+{
+    "python.analysis.exclude": [
+        "/data",
+        "/cache",
+        "**/__pycache__/",
+        "/.vscode",
+        "/.git",
+    ]
+}
