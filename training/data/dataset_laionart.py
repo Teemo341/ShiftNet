@@ -14,7 +14,7 @@ assert os.path.exists(DATA_DIR), f"Data directory {DATA_DIR} does not exist."
 assert os.path.exists(SAVE_DIR), f"Image directory {SAVE_DIR} does not exist."
 
 class LaionArt_Base(Dataset):
-    def __init__(self, lang = ['en'], top = 0, bottom = 1_000_000, split = 'train', split_rate=[0.9,0.05,0.05], warning_threshold=0.8, size = None, interpolation="bicubic"):
+    def __init__(self, lang = ['en'], top = 0, bottom = 1_000_000, split = 'train', split_rate=[0.9,0.05,0.05], warning_threshold=0.8, size = 512, interpolation="bicubic"):
         self.lang = lang
         self.top = top
         self.bottom = bottom
