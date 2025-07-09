@@ -5,5 +5,7 @@
         "**/__pycache__/",
         "/.vscode",
         "/.git",
+        "/models",
+        "/docs",
     ]
 }
