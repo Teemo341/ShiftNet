@@ -96,9 +96,11 @@ if __name__ == "__main__":
         os.makedirs(SAVE_DIR, exist_ok=True)
 
         # 步骤2：构建下载任务列表（断点续传）
+        print("构建下载任务列表...")
         existing_files = set(os.listdir(SAVE_DIR))
+        print(f"已存在图片数量: {len(existing_files)}")
         tasks = []
-        for item in subset:
+        for item in tqdm(subset, desc="Processing items", total=len(subset), leave=False):
             img_hash = item['hash']
             url = item['URL']
             filename = f"{img_hash}.jpg"

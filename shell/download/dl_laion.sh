@@ -12,7 +12,7 @@
 python -u -m training.data.dl_laionart \
     --function download filter \
     --data_dir data/laionart \
-    --num_threads 32 \
+    --num_threads 64 \
     --start_idx 0 \
     --end_idx 3274199 \
     --languages en \
