@@ -90,8 +90,11 @@ def load_model(model_type):
 
     elif model_type == "dpt_hybrid":  # DPT-Hybrid
         if not os.path.exists(model_path):
-            from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(remote_model_path, model_dir=annotator_ckpts_path)
+            import wget
+            os.makedirs(annotator_ckpts_path, exist_ok=True)
+            print(f'Downloading {remote_model_path} to {model_path}...')
+            wget.download(remote_model_path, model_path)
+            print('Download complete.')
 
         model = DPTDepthModel(
             path=model_path,

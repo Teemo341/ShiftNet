@@ -100,6 +100,12 @@ class LaionArt_Base(Dataset):
         item_out['txt'] = item_out['TEXT']
         return item_out
 
+class LaionArt_Caption(LaionArt_Base):
+    def __init__(self,caption=['canny'], lang = ['en'], top = 0, bottom = 1_000_000, split = 'train', split_rate=[0.9,0.05,0.05], warning_threshold=0.8, size = 512, interpolation="bicubic"):
+        caption_choices = ['canny', 'mlsd', 'scribble', "softedge"]
+        super().__init__(lang, top, bottom, split, split_rate, warning_threshold, size, interpolation)
+
+
 
 if __name__=='__main__':
     a = LaionArt_Base()

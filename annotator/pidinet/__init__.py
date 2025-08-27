@@ -14,8 +14,11 @@ class PidiNetDetector:
         remote_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/table5_pidinet.pth"
         modelpath = os.path.join(annotator_ckpts_path, "table5_pidinet.pth")
         if not os.path.exists(modelpath):
-            from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(remote_model_path, model_dir=annotator_ckpts_path)
+            import wget
+            os.makedirs(annotator_ckpts_path, exist_ok=True)
+            print(f'Downloading {remote_model_path} to {modelpath}...')
+            wget.download(remote_model_path, modelpath)
+            print('Download complete.')
         self.netNetwork = pidinet()
         self.netNetwork.load_state_dict({k.replace('module.', ''): v for k, v in torch.load(modelpath)['state_dict'].items()})
         self.netNetwork = self.netNetwork.cuda()

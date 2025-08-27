@@ -18,8 +18,11 @@ class NormalBaeDetector:
         remote_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/scannet.pt"
         modelpath = os.path.join(annotator_ckpts_path, "scannet.pt")
         if not os.path.exists(modelpath):
-            from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(remote_model_path, model_dir=annotator_ckpts_path)
+            import wget
+            os.makedirs(annotator_ckpts_path, exist_ok=True)
+            print(f'Downloading {remote_model_path} to {modelpath}...')
+            wget.download(remote_model_path, modelpath)
+            print('Download complete.')
         args = types.SimpleNamespace()
         args.mode = 'client'
         args.architecture = 'BN'

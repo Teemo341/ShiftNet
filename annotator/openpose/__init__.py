@@ -48,16 +48,25 @@ class OpenposeDetector:
         face_modelpath = os.path.join(annotator_ckpts_path, "facenet.pth")
 
         if not os.path.exists(body_modelpath):
-            from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(body_model_path, model_dir=annotator_ckpts_path)
+            import wget
+            os.makedirs(annotator_ckpts_path, exist_ok=True)
+            print(f'Downloading {body_model_path} to {body_modelpath}...')
+            wget.download(body_model_path, body_modelpath)
+            print('Download complete.')
 
         if not os.path.exists(hand_modelpath):
-            from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(hand_model_path, model_dir=annotator_ckpts_path)
+            import wget
+            os.makedirs(annotator_ckpts_path, exist_ok=True)
+            print(f'Downloading {hand_model_path} to {hand_modelpath}...')
+            wget.download(hand_model_path, hand_modelpath)
+            print('Download complete.')
 
         if not os.path.exists(face_modelpath):
-            from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(face_model_path, model_dir=annotator_ckpts_path)
+            import wget
+            os.makedirs(annotator_ckpts_path, exist_ok=True)
+            print(f'Downloading {face_model_path} to {face_modelpath}...')
+            wget.download(face_model_path, face_modelpath)
+            print('Download complete.')
 
         self.body_estimation = Body(body_modelpath)
         self.hand_estimation = Hand(hand_modelpath)

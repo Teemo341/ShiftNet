@@ -10,7 +10,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from basicsr.utils import img2tensor
 
 nets = {
     'baseline': {
@@ -644,7 +643,8 @@ if __name__ == '__main__':
     ckp = torch.load('table5_pidinet.pth')['state_dict']
     model.load_state_dict({k.replace('module.',''):v for k, v in ckp.items()})
     im = cv2.imread('examples/test_my/cat_v4.png')
-    im = img2tensor(im).unsqueeze(0)/255.
+    # im = img2tensor(im).unsqueeze(0)/255.
+    im = torch.from_numpy(im).permute(2,0,1).unsqueeze(0).float()/255.
     res = model(im)[-1]
     res = res>0.5
     res = res.float()

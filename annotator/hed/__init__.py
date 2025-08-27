@@ -58,8 +58,11 @@ class HEDdetector:
         remote_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/ControlNetHED.pth"
         modelpath = os.path.join(annotator_ckpts_path, "ControlNetHED.pth")
         if not os.path.exists(modelpath):
-            from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(remote_model_path, model_dir=annotator_ckpts_path)
+            import wget
+            os.makedirs(annotator_ckpts_path, exist_ok=True)
+            print(f'Downloading {remote_model_path} to {modelpath}...')
+            wget.download(remote_model_path, modelpath)
+            print('Download complete.')
         self.netNetwork = ControlNetHED_Apache2().float().cuda().eval()
         self.netNetwork.load_state_dict(torch.load(modelpath))
 

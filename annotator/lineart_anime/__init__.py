@@ -117,8 +117,11 @@ class LineartAnimeDetector:
         remote_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/netG.pth"
         modelpath = os.path.join(annotator_ckpts_path, "netG.pth")
         if not os.path.exists(modelpath):
-            from basicsr.utils.download_util import load_file_from_url
-            load_file_from_url(remote_model_path, model_dir=annotator_ckpts_path)
+            import wget
+            os.makedirs(annotator_ckpts_path, exist_ok=True)
+            print(f'Downloading {remote_model_path} to {modelpath}...')
+            wget.download(remote_model_path, modelpath)
+            print('Download complete.')
         norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
         net = UnetGenerator(3, 1, 8, 64, norm_layer=norm_layer, use_dropout=False)
         ckpt = torch.load(modelpath)
