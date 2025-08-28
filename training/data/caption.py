@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw
 import random
 
 from annotator.util import nms, resize_image, HWC3
-from annotator.canny import CannyDetector
+from annotator.canny import CannyDetector # no model needed
 from annotator.mlsd import MLSDdetector
 from annotator.hed import HEDdetector
 from annotator.pidinet import PidiNetDetector
@@ -17,8 +17,8 @@ from annotator.uniformer import UniformerDetector
 from annotator.oneformer import OneformerCOCODetector, OneformerADE20kDetector
 from annotator.openpose import OpenposeDetector
 from annotator.lineart import LineartDetector
-from annotator.lineart_anime import LineartAnimeDetector
-from annotator.shuffle import ContentShuffleDetector
+from annotator.lineart_anime import LineartAnimeDetector 
+from annotator.shuffle import ContentShuffleDetector # no model needed
 
 
 # global variables
@@ -254,10 +254,30 @@ def caption_inpaint(input_image, resolution = 512): #! only return mask, 1 for i
         mask=random_occlusion_mask(H, W)
     return mask
 
+def clean_models():
+    global canny_processor, mlsd_processor, scribble_processor, softedge_processor
+    global depth_processor, normal_processor, seg_processor
+    global openpose_processor
+    global lineart_processor, lineartanime_processor
+    global shuffle_processor
+    canny_processor = None
+    mlsd_processor = None
+    scribble_processor = None
+    softedge_processor = None
+    depth_processor = None
+    normal_processor = None
+    seg_processor = None
+    openpose_processor = None
+    lineart_processor = None
+    lineartanime_processor = None
+    shuffle_processor = None
+
 
 if __name__ == "__main__":
     # Example usage
     input_image = cv2.imread('./test_imgs/bird.png')
+    
+    # Process images
     canny_map = caption_canny(input_image)
     mlsd_map = caption_mlsd(input_image)
     scribble_map = caption_scribble(input_image, det='HED')
@@ -270,17 +290,17 @@ if __name__ == "__main__":
     lineartanime_map = caption_lineartanime(input_image)
     shuffle_map = caption_shuffle(input_image)
     
-    # Display results
-    cv2.imshow('Canny', canny_map)
-    cv2.imshow('MLSD', mlsd_map)
-    cv2.imshow('Scribble', scribble_map)
-    cv2.imshow('SoftEdge', softedge_map)
-    cv2.imshow('Depth', depth_map)
-    cv2.imshow('Normal', normal_map)
-    cv2.imshow('Segmentation', seg_map)
-    cv2.imshow('Openpose', openpose_map)
-    cv2.imshow('Lineart', lineart_map)
-    cv2.imshow('Lineart Anime', lineartanime_map)
-    cv2.imshow('Shuffle', shuffle_map)
+    # Save results instead of displaying
+    cv2.imwrite('./temp/canny_result.png', canny_map)
+    cv2.imwrite('./temp/mlsd_result.png', mlsd_map)
+    cv2.imwrite('./temp/scribble_result.png', scribble_map)
+    cv2.imwrite('./temp/softedge_result.png', softedge_map)
+    cv2.imwrite('./temp/depth_result.png', depth_map)
+    cv2.imwrite('./temp/normal_result.png', normal_map)
+    cv2.imwrite('./temp/segmentation_result.png', seg_map)
+    cv2.imwrite('./temp/openpose_result.png', openpose_map)
+    cv2.imwrite('./temp/lineart_result.png', lineart_map)
+    cv2.imwrite('./temp/lineart_anime_result.png', lineartanime_map)
+    cv2.imwrite('./temp/shuffle_result.png', shuffle_map)
     
-    cv2.waitKey(0)
+    print("All results have been saved to PNG files.")

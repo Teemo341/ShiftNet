@@ -6,11 +6,13 @@ logs/
 /data
 lightning_logs/
 image_log/
+temp/
 
 *.pth
 *.pt
 *.ckpt
 *.safetensors
+*.tmp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
