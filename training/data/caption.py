@@ -275,32 +275,62 @@ def clean_models():
 
 if __name__ == "__main__":
     # Example usage
-    input_image = cv2.imread('./test_imgs/bird.png')
+    # input_image = cv2.imread('./test_imgs/violet.jpg')
+    # input_image = cv2.imread('./test_imgs/bird.png')
+    # input_image = cv2.imread('./test_imgs/human.png')
+    input_image = cv2.imread('./test_imgs/house.png')
     
     # Process images
     canny_map = caption_canny(input_image)
-    mlsd_map = caption_mlsd(input_image)
-    scribble_map = caption_scribble(input_image, det='HED')
-    softedge_map = caption_softedge(input_image, det='SoftEdge_PIDI_safe')
-    depth_map = caption_depth(input_image, det='Depth_Midas')
-    normal_map = caption_normal(input_image)
-    seg_map = caption_seg(input_image, det='Seg_OFADE20K')
-    openpose_map = caption_openpose(input_image, det='Openpose_full')
-    lineart_map = caption_linear(input_image, det='Lineart_Coarse')
-    lineartanime_map = caption_lineartanime(input_image)
-    shuffle_map = caption_shuffle(input_image)
-    
-    # Save results instead of displaying
+    print(torch.cuda.memory_allocated('cuda') / 1024**2) # 0
     cv2.imwrite('./temp/canny_result.png', canny_map)
+    clean_models()
+
+    mlsd_map = caption_mlsd(input_image)
+    print(torch.cuda.memory_allocated('cuda') / 1024**2) # 6
     cv2.imwrite('./temp/mlsd_result.png', mlsd_map)
+    clean_models()
+
+    scribble_map = caption_scribble(input_image, det='HED')
+    print(torch.cuda.memory_allocated('cuda') / 1024**2) # 57
     cv2.imwrite('./temp/scribble_result.png', scribble_map)
+    clean_models()
+
+    softedge_map = caption_softedge(input_image, det='SoftEdge_PIDI_safe')
+    print(torch.cuda.memory_allocated('cuda') / 1024**2) # 3
     cv2.imwrite('./temp/softedge_result.png', softedge_map)
+    clean_models()
+
+    depth_map = caption_depth(input_image, det='Depth_Midas')
+    print(torch.cuda.memory_allocated('cuda') / 1024**2) # 510
     cv2.imwrite('./temp/depth_result.png', depth_map)
+    clean_models()
+
+    normal_map = caption_normal(input_image)
+    print(torch.cuda.memory_allocated('cuda') / 1024**2) # 319
     cv2.imwrite('./temp/normal_result.png', normal_map)
+    clean_models()
+
+    seg_map = caption_seg(input_image, det='Seg_OFADE20K')
+    print(torch.cuda.memory_allocated('cuda') / 1024**2) # 882
     cv2.imwrite('./temp/segmentation_result.png', seg_map)
+    clean_models()
+
+    openpose_map = caption_openpose(input_image, det='Openpose_full')
+    print(torch.cuda.memory_allocated('cuda') / 1024**2) # 533
     cv2.imwrite('./temp/openpose_result.png', openpose_map)
+    clean_models()
+
+    lineart_map = caption_linear(input_image, det='Lineart_Coarse')
     cv2.imwrite('./temp/lineart_result.png', lineart_map)
+    clean_models()
+
+    lineartanime_map = caption_lineartanime(input_image)
     cv2.imwrite('./temp/lineart_anime_result.png', lineartanime_map)
+    clean_models()
+
+    shuffle_map = caption_shuffle(input_image)
     cv2.imwrite('./temp/shuffle_result.png', shuffle_map)
+    clean_models()
     
     print("All results have been saved to PNG files.")
