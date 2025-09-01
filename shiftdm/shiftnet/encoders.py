@@ -109,3 +109,14 @@ class fill50k_encoder(single_encoder_base):
         x = super().forward(x_dict)
         z = self.middel_block(x)
         return z
+    
+
+class edge_encoder_base(single_encoder_base):
+    def __init__(self, *args, **kwargs):
+        assert args.encode_key in ['canny', 'mlsd', 'scribble', 'softedge']
+        super().__init__(*args, **kwargs)
+    
+    def forward(self, x_dict: dict):
+        x = super().forward(x_dict) # bchw, [-1,1], -1 for black, 1 for white
+        x = (x + 1.0) / 2.0  # to [0,1], 0 for black, 1 for white, 0 not shift x, 1 shift x
+        return x
