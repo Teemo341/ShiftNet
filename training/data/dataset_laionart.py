@@ -119,7 +119,7 @@ def caption_func(caption_type, image, size, img_hash):
         if not caption_image.mode == "RGB":
             caption_image = caption_image.convert("RGB")
         caption_image = np.array(caption_image).astype(np.float32)
-        caption_image = (caption_image / 127.5 - 1.0) # sd set image range to [-1, 1]
+        caption_image = caption_image / 255 # shift and control condition is [0,1]
         return caption_image
     else:
         function_map = {
@@ -140,7 +140,7 @@ def caption_func(caption_type, image, size, img_hash):
         os.makedirs(os.path.dirname(caption_image_path), exist_ok=True)
         caption_image_pil = Image.fromarray(caption_image)
         caption_image_pil.save(caption_image_path)
-        caption_image = (caption_image.astype(np.float32) / 127.5 - 1.0) # sd set image range to [-1, 1]
+        caption_image = caption_image.astype(np.float32) / 255 # shift and control condition is [0,1]
         return caption_image
 
 

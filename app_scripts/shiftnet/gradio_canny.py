@@ -10,16 +10,16 @@ import random
 from pytorch_lightning import seed_everything
 from annotator.util import resize_image, HWC3
 from annotator.canny import CannyDetector
-from cldm.model import create_model, load_state_dict
-from cldm.ddim_hacked import DDIMSampler
+from shiftdm.model import create_model, load_state_dict
+from shiftdm.ddim_hacked import DDIMSampler
 
 
 preprocessor = None
 
 model_name = 'control_v11p_sd15_canny'
-model = create_model(f'./models/{model_name}.yaml').cpu()
-model.load_state_dict(load_state_dict('./models/v1-5-pruned.ckpt', location='cuda'), strict=False)
-model.load_state_dict(load_state_dict(f'./models/{model_name}.pth', location='cuda'), strict=False)
+model = create_model(f'./models/cldm/{model_name}.yaml').cpu()
+model.load_state_dict(load_state_dict('./models/sd/v1-5-pruned.ckpt', location='cuda'), strict=False)
+model.load_state_dict(load_state_dict(f'./models/cldm/{model_name}.pth', location='cuda'), strict=False)
 model = model.cuda()
 ddim_sampler = DDIMSampler(model)
 
@@ -87,9 +87,9 @@ with block:
         gr.Markdown("## Control Stable Diffusion with Canny Edges")
     with gr.Row():
         with gr.Column():
-            input_image = gr.Image(source='upload', type="numpy")
+            input_image = gr.Image(type="numpy")
             prompt = gr.Textbox(label="Prompt")
-            run_button = gr.Button(label="Run")
+            run_button = gr.Button(value="Run")
             num_samples = gr.Slider(label="Images", minimum=1, maximum=12, value=1, step=1)
             seed = gr.Slider(label="Seed", minimum=-1, maximum=2147483647, step=1, value=12345)
             det = gr.Radio(choices=["Canny", "None"], type="value", value="Canny", label="Preprocessor")
@@ -106,9 +106,9 @@ with block:
                 a_prompt = gr.Textbox(label="Added Prompt", value='best quality')
                 n_prompt = gr.Textbox(label="Negative Prompt", value='lowres, bad anatomy, bad hands, cropped, worst quality')
         with gr.Column():
-            result_gallery = gr.Gallery(label='Output', show_label=False, elem_id="gallery").style(grid=2, height='auto')
+            result_gallery = gr.Gallery(label='Output', show_label=False, elem_id="gallery")
     ips = [det, input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, strength, scale, seed, eta, low_threshold, high_threshold]
     run_button.click(fn=process, inputs=ips, outputs=[result_gallery])
 
 
-block.launch(server_name='0.0.0.0')
+block.launch(server_name='0.0.0.0', server_port=8388)

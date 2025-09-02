@@ -67,7 +67,7 @@ class ShiftLDM(LatentDiffusion):
                 # shift[i] = shift[i].to(memory_format=torch.contiguous_format).float() #? not sure if this is needed
             
             # encode the shift image #! should check the grad
-            z_shift = self.get_shift_stage_encoding(self.encode_shift_stage(shift)) # same shape as z
+            z_shift = self.get_shift_stage_encoding(self.encode_shift_stage(shift)) # same shape as z, [-1, 1]
             c['shift'] = z_shift
         else:
             c['shift'] = None
@@ -106,7 +106,7 @@ class ShiftLDM(LatentDiffusion):
         N = min(z.shape[0], N)
         n_row = min(z.shape[0], n_row)
         if exists(c["c_concat"]):
-            log["control"] = c["c_concat"][0] * 2.0 - 1.0
+            log["control"] = c["c_concat"][0] * 2.0 - 1.0 # [-1, 1]
         if exists(c["c_crossattn"]):
             log["conditioning"] = log_txt_as_img((512, 512), batch[self.cond_stage_key], size=16)
         if exists(c["shift"]) and c["shift"] is not None:

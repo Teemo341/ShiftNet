@@ -83,7 +83,7 @@ class ShiftNetBase(pl.LightningModule):
                         raise ValueError(f"Input {key} must be a tensor, got {type(x_dict[key])}")
 
         z = self.encoder(x_dict)
-        return z
+        return z # bchw, [-1, 1]
     
     def decode(self, z: torch.tensor, first_stage_model: pl.LightningModule):
         """Decode the encoded data using the sd's first stage model. Must use to ensure the alignment with sd.
