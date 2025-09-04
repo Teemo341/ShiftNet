@@ -1,28 +1,8 @@
 model:
-  target: shiftdm.shiftdm.ShiftLDM
+  base_learning_rate: 2.0e-06
+  target: ldm.models.diffusion.ddpm.LatentDiffusion
   params:
-    parent_model: cldm
-    shift_stage_key: ['shift']
-    shift_stage_scale: 1.0
-    shift_stage_config:
-      target: shiftdm.shiftdm.ShiftStage
-      params:
-        image_size: 256
-        in_channels: 4
-        out_channels: 4
-        model_channels: 320
-        attention_resolutions: [ 4, 2, 1 ]
-        num_res_blocks: 2
-        channel_mult: [ 1, 2, 4, 4 ]
-        num_heads: 8
-        use_spatial_transformer: True
-        transformer_depth: 1
-        context_dim: 768
-        use_checkpoint: True
-        legacy: False
-
-
-    # others are controlnet parameters, do not change to load the pretrained model
+    # SD parameters, do not change to load the pretrained model
     linear_start: 0.00085
     linear_end: 0.0120
     num_timesteps_cond: 1
@@ -30,38 +10,18 @@ model:
     timesteps: 1000
     first_stage_key: jpg
     cond_stage_key: txt
-    control_key: hint
-    image_size: 32
+    image_size: 64
     channels: 4
     cond_stage_trainable: false
     conditioning_key: crossattn
     monitor: val/loss_simple_ema
     scale_factor: 0.18215
     use_ema: False
-    only_mid_control: False
-    global_average_pooling: True
-
-    control_stage_config:
-      target: cldm.cldm.ControlNet
-      params:
-        image_size: 32 # unused
-        in_channels: 4
-        hint_channels: 3
-        model_channels: 320
-        attention_resolutions: [ 4, 2, 1 ]
-        num_res_blocks: 2
-        channel_mult: [ 1, 2, 4, 4 ]
-        num_heads: 8
-        use_spatial_transformer: True
-        transformer_depth: 1
-        context_dim: 768
-        use_checkpoint: True
-        legacy: False
 
     unet_config:
-      target: cldm.cldm.ControlledUnetModel
+      target: ldm.modules.diffusionmodules.openaimodel.UNetModel
       params:
-        image_size: 32 # unused
+        image_size: 64 # unused
         in_channels: 4
         out_channels: 4
         model_channels: 320
@@ -102,29 +62,23 @@ model:
       target: ldm.modules.encoders.modules.FrozenCLIPEmbedder
       
 data:
-  target: main_HSI.DataModuleFromConfig
+  target: training.data.dataloader.DataModuleFromConfig
   params:
     batch_size: 32
-    num_workers: 5
+    num_workers: 4
     wrap: False
     train:
-      target: ldm.data.HSI.Indian_Pines_Corrected_train
-      params:
-        size: 32
-    validation:
-      target: ldm.data.HSI.Indian_Pines_Corrected_valid
-      params:
-        size: 32
+      target: training.data.dataset_fill50k.fill50k
+      # params:
 
 lightning:
   callbacks:
     image_logger:
-      target: main_HSI.ImageLogger_HSI
+      target: training.callbacks.ImageLogger
       params:
         batch_frequency: 200
-        max_images: 8
+        max_images: 4
         increase_log_steps: False
-        visual_channels: [36,17,11]
         log_images_kwargs:
           quantize_denoised: False
           inpaint : False
@@ -133,5 +87,9 @@ lightning:
           plot_diffusion_rows : True
 
   trainer:
+    accelerator: auto
+    devices: auto
+    strategy: auto
+    precision: 32 # 64, 32, 16-mixed, bf16-mixed
     benchmark: True
     max_epochs: 100

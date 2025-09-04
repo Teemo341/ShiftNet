@@ -1,6 +1,7 @@
 import torch
 import pytorch_lightning as pl
 import einops
+import copy
 import torch.nn.functional as F
 
 from ldm.util import instantiate_from_config
@@ -11,13 +12,15 @@ from ldm.modules.distributions.distributions import DiagonalGaussianDistribution
 class ShiftNetBase(pl.LightningModule):
     def __init__(self, 
                  target_key, 
-                 encoder_config, 
+                 encoder_config,
+                 use_first_stage = True,
                  first_stage_config = None, 
                  ckpt_path=None,
                  ignore_keys=[],
                  learning_rate=1e-5):
         super().__init__()
         self.instantiate_encoder(encoder_config)
+        self.use_frist_stage = use_first_stage
         self.instantiate_first_stage(first_stage_config)
         self.encoder_keys = self.encoder.encode_keys if hasattr(self.encoder, 'encode_keys') else [self.encoder.encode_key]
         self.target_key = target_key
@@ -32,7 +35,9 @@ class ShiftNetBase(pl.LightningModule):
 
     def instantiate_first_stage(self, first_stage_config):
         """Instantiate the first stage model from the given configuration.
-        The first stage model is used to encode the input data before passing to the encoder."""
+        The first stage model is used to encode the input data before passing to the encoder.
+        The first stage model will be saved, but removed when initialized in the shiftdm.
+        """
         if first_stage_config is None:
             self.first_stage_model = None
         else:
@@ -66,12 +71,15 @@ class ShiftNetBase(pl.LightningModule):
             x_dict[key] = x_dict[key]*2.0 - 1.0
         return x_dict
 
-    def encode(self, x_dict: dict, first_stage_model: pl.LightningModule = None):
+    def encode(self, x_dict: dict, first_stage_model: pl.LightningModule = None, preprocess=True):
         """Encode the input data using the model's encoder.
-            it's optional to use the sd's first stage model for base encoding.
+            it's optional to use the sd's first_stage_model for base encoding.
+            dont't worry about the memory of first_stage_model, call a pytorch model will use the original one instead of a copy.
         """
-        x_dict = self.preprocess_input(x_dict) # {bchw}
-        if first_stage_model is not None:
+        if preprocess:
+            x_dict = self.preprocess_input(x_dict) # {bchw} [-1, 1]
+        if self.use_frist_stage:
+            assert first_stage_model is not None, "first_stage_model must be provided when use_first_stage is True"
             with torch.no_grad():
                 for key in x_dict:
                     if isinstance(x_dict[key], torch.Tensor):
@@ -88,7 +96,7 @@ class ShiftNetBase(pl.LightningModule):
     def decode(self, z: torch.tensor, first_stage_model: pl.LightningModule):
         """Decode the encoded data using the sd's first stage model. Must use to ensure the alignment with sd.
         """
-        return first_stage_model.decode(z) # bchw
+        return first_stage_model.decode(z) # bchw, [-1, 1]
     
     def loss(self, rec, target):
         """you should define the loss according to the task. The basic situation is the rec_mse. however, in many cases, rec_mse is insufficient. 
@@ -150,3 +158,39 @@ class ShiftNetBase(pl.LightningModule):
             x = F.conv2d(x, weight=getattr(self, f"colorize_{channel}"))
             x = 2.*(x-x.min())/(x.max()-x.min()) - 1.
             return x
+
+
+class ShiftNet_Edge(ShiftNetBase):
+    def __init__(self, target_key, encoder_config, use_first_stage=True, first_stage_config=None, ckpt_path=None, ignore_keys=[], learning_rate=0.00001):
+        super().__init__(target_key, encoder_config, use_first_stage, first_stage_config, ckpt_path, ignore_keys, learning_rate)
+        self.x_mean = None # the x correspeinding to 0 latnet, used to shift only the edge areas
+
+    def preprocess_input(self, x_dict: dict):
+        """ sd input is [-1,1], but contorl condition is [0,1], so shift condition is also [0,1]
+            you may add other operations
+        """
+       # edges is 1, background is 0, so 0 not shift, 1 shift
+        return x_dict
+    
+    # def encode(self, x_dict: dict, first_stage_model: pl.LightningModule = None, preprocess=True):
+    #     if self.x_mean is None:
+    #         x_dict_ = copy.deepcopy(x_dict)
+    #         z = super().encode(x_dict_, first_stage_model, preprocess=False)[0:1] # 1chw
+    #         zero = torch.zeros_like(z, device=z.device)
+    #         self.x_mean = self.decode(zero, first_stage_model).detach()
+    #         print("set x_mean for edge encoder")
+
+    #     # for key in x_dict:
+    #     #     x_dict[key] = torch.clip(x_dict[key] + self.x_mean, -1.0, 1.0) # add shit to x_mean, so besides edges the latent is 0
+    #     z = super().encode(x_dict, first_stage_model, preprocess = False)
+    #     return z
+
+    def encode(self, x_dict: dict, first_stage_model: pl.LightningModule = None, preprocess=True):
+        z = 0.
+        i = 0.
+        for key in x_dict:
+            z = z+ F.interpolate(x_dict[key][:,:1,:,:], scale_factor=1/8, mode='bilinear', align_corners=False)
+            i+=1
+        z = z/i
+        return z
+        

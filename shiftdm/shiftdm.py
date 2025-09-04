@@ -2,6 +2,7 @@ from typing import List
 
 import einops
 import torch
+import copy
 
 from torch.optim.lr_scheduler import LambdaLR
 from einops import rearrange, repeat
@@ -64,11 +65,8 @@ class ShiftLDM(LatentDiffusion):
                     shift[key] = shift[key][:bs]
                 shift[key] = shift[key].to(self.device)
                 shift[key] = einops.rearrange(shift[key], 'b h w c -> b c h w')
-                # shift[i] = shift[i].to(memory_format=torch.contiguous_format).float() #? not sure if this is needed
-            
-            # encode the shift image #! should check the grad
-            z_shift = self.get_shift_stage_encoding(self.encode_shift_stage(shift)) # same shape as z, [-1, 1]
-            c['shift'] = z_shift
+                # shift[key] = shift[key].to(memory_format=torch.contiguous_format).float() #? not sure if this is needed            
+            c['shift'] = shift # {key: bchw}
         else:
             c['shift'] = None
         return [z, c]
@@ -77,15 +75,18 @@ class ShiftLDM(LatentDiffusion):
         """ pop the shift feature, scale, add to the input, and remove from the output"""
         assert isinstance(cond, dict)
         z_shift = None
+        cond = copy.deepcopy(cond)  # avoid modifying the original cond outside this function
 
         # add shift to the input
         if 'shift' in cond and cond['shift'] is not None:
-            z_shift = cond.pop('shift')
+            z_shift = cond.pop('shift') # original image dict {key: bchw}
+            z_shift = self.get_shift_stage_encoding(self.encode_shift_stage(z_shift)) # same shape as z, [-1, 1]
             shift_scale = self.get_shift_scale(t)
             z_shift = z_shift * shift_scale * self.shift_stage_scale
             x_noisy = x_noisy + z_shift # add shift to make mu constant
 
         model_output = super().apply_model(x_noisy, t, cond, *args, **kwargs)
+        print(x_noisy.mean(), x_noisy.std())
 
         return model_output
     
@@ -110,7 +111,7 @@ class ShiftLDM(LatentDiffusion):
         if exists(c["c_crossattn"]):
             log["conditioning"] = log_txt_as_img((512, 512), batch[self.cond_stage_key], size=16)
         if exists(c["shift"]) and c["shift"] is not None:
-            log["shift"] = self.decode_first_stage(c["shift"])
+            log["shift"] = self.decode_first_stage(self.get_shift_stage_encoding(self.encode_shift_stage(c["shift"]))) # encode and decode to show the shift latent
         log["reconstruction"] = self.decode_first_stage(z)
 
         if plot_diffusion_rows:

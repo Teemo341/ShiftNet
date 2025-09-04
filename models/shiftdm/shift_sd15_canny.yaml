@@ -4,21 +4,21 @@ model:
   params:
     # ckpt_path:
     parent_model: ldm
-    shift_stage_key: ['hint']
+    shift_stage_key: ['canny']
     shift_stage_scale: 1.0
     base_locked: True 
     shift_stage_config:
-      target: shiftdm.shiftnet.shiftnet.ShiftNetBase
+      target: shiftdm.shiftnet.shiftnet.ShiftNet_Edge
       params:
         # ckpt_path: 
         target_key: jpg
         encoder_config:
-          target: shiftdm.shiftnet.encoders.fill50k_encoder
+          target: shiftdm.shiftnet.encoders.edge_encoder_base
           params:
             # ckpt_path: 
-            encode_key: hint
-            layers: 4
-            hidden_dim: 64
+            encode_key: canny
+            # layers: 4
+            # hidden_dim: 64
         # first_stage_config:
 
 

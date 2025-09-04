@@ -16,15 +16,15 @@ from shiftdm.ddim_hacked import DDIMSampler
 
 preprocessor = None
 
-model_name = 'control_v11p_sd15_canny'
-model = create_model(f'./models/cldm/{model_name}.yaml').cpu()
+model_name = 'shift_sd15_canny'
+model = create_model(f'./models/shiftdm/{model_name}.yaml').cpu()
 model.load_state_dict(load_state_dict('./models/sd/v1-5-pruned.ckpt', location='cuda'), strict=False)
-model.load_state_dict(load_state_dict(f'./models/cldm/{model_name}.pth', location='cuda'), strict=False)
+# model.load_state_dict(load_state_dict(f'./models/shiftdm/{model_name}.pth', location='cuda'), strict=False)
 model = model.cuda()
 ddim_sampler = DDIMSampler(model)
 
 
-def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, strength, scale, seed, eta, low_threshold, high_threshold):
+def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, shift_strength, scale, seed, eta, low_threshold, high_threshold):
     global preprocessor
 
     if det == 'Canny':
@@ -45,9 +45,12 @@ def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_res
 
         detected_map = cv2.resize(detected_map, (W, H), interpolation=cv2.INTER_LINEAR)
 
-        control = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
-        control = torch.stack([control for _ in range(num_samples)], dim=0)
-        control = einops.rearrange(control, 'b h w c -> b c h w').clone()
+        shift = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
+        shift = torch.stack([shift for _ in range(num_samples)], dim=0)
+        shift = einops.rearrange(shift, 'b h w c -> b c h w').clone()
+        shift_rec = model.decode_first_stage(model.get_first_stage_encoding(model.encode_first_stage(shift)))
+        shift_rec = (einops.rearrange(shift_rec, 'b c h w -> b h w c') * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)[0]
+        shift = {'canny': shift}
 
         if seed == -1:
             seed = random.randint(0, 65535)
@@ -56,15 +59,19 @@ def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_res
         if share.save_memory:
             model.low_vram_shift(is_diffusing=False)
 
-        cond = {"c_concat": [control], "c_crossattn": [model.get_learned_conditioning([prompt + ', ' + a_prompt] * num_samples)]}
-        un_cond = {"c_concat": None if guess_mode else [control], "c_crossattn": [model.get_learned_conditioning([n_prompt] * num_samples)]}
+        cond = {"shift": shift, "c_crossattn": [model.get_learned_conditioning([prompt + ', ' + a_prompt] * num_samples)]}
+        if guess_mode:
+            un_cond = {"c_crossattn": [model.get_learned_conditioning([n_prompt] * num_samples)]}
+        else:
+            un_cond = {"shift": shift, "c_crossattn": [model.get_learned_conditioning([n_prompt] * num_samples)]}
         shape = (4, H // 8, W // 8)
 
         if share.save_memory:
             model.low_vram_shift(is_diffusing=True)
 
-        model.control_scales = [strength * (0.825 ** float(12 - i)) for i in range(13)] if guess_mode else ([strength] * 13)
+        # model.control_scales = [strength * (0.825 ** float(12 - i)) for i in range(13)] if guess_mode else ([strength] * 13)
         # Magic number. IDK why. Perhaps because 0.825**12<0.01 but 0.826**12>0.01
+        model.shift_stage_scale = shift_strength
 
         samples, intermediates = ddim_sampler.sample(ddim_steps, num_samples,
                                                      shape, cond, verbose=False, eta=eta,
@@ -78,7 +85,7 @@ def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_res
         x_samples = (einops.rearrange(x_samples, 'b c h w -> b h w c') * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)
 
         results = [x_samples[i] for i in range(num_samples)]
-    return [detected_map] + results
+    return detected_map, shift_rec, results
 
 
 block = gr.Blocks().queue()
@@ -97,7 +104,7 @@ with block:
                 low_threshold = gr.Slider(label="Canny low threshold", minimum=1, maximum=255, value=100, step=1)
                 high_threshold = gr.Slider(label="Canny high threshold", minimum=1, maximum=255, value=200, step=1)
                 image_resolution = gr.Slider(label="Image Resolution", minimum=256, maximum=768, value=512, step=64)
-                strength = gr.Slider(label="Control Strength", minimum=0.0, maximum=2.0, value=1.0, step=0.01)
+                shift_strength = gr.Slider(label="Shift Strength", minimum=0.0, maximum=2.0, value=1.0, step=0.01)
                 guess_mode = gr.Checkbox(label='Guess Mode', value=False)
                 detect_resolution = gr.Slider(label="Preprocessor Resolution", minimum=128, maximum=1024, value=512, step=1)
                 ddim_steps = gr.Slider(label="Steps", minimum=1, maximum=100, value=20, step=1)
@@ -106,9 +113,14 @@ with block:
                 a_prompt = gr.Textbox(label="Added Prompt", value='best quality')
                 n_prompt = gr.Textbox(label="Negative Prompt", value='lowres, bad anatomy, bad hands, cropped, worst quality')
         with gr.Column():
-            result_gallery = gr.Gallery(label='Output', show_label=False, elem_id="gallery")
-    ips = [det, input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, strength, scale, seed, eta, low_threshold, high_threshold]
-    run_button.click(fn=process, inputs=ips, outputs=[result_gallery])
+            with gr.Row():
+                    detected_image = gr.Image(label="Detected Image", type="numpy")
+                    shift_image = gr.Image(label="Shift Image", type="numpy")
+            with gr.Row():
+                result_gallery = gr.Gallery(label='Output', show_label=False, elem_id="gallery")
+    ips = [det, input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, shift_strength, scale, seed, eta, low_threshold, high_threshold]
+    run_button.click(fn=process, inputs=ips, outputs=(detected_image, shift_image, result_gallery))
 
 
 block.launch(server_name='0.0.0.0', server_port=8388)
+# block.launch()
