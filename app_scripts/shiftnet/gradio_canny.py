@@ -6,6 +6,7 @@ import gradio as gr
 import numpy as np
 import torch
 import random
+import copy
 
 from pytorch_lightning import seed_everything
 from annotator.util import resize_image, HWC3
@@ -15,12 +16,19 @@ from shiftdm.ddim_hacked import DDIMSampler
 
 
 preprocessor = None
+# Auto-detect device: cuda, mps, or cpu
+if torch.cuda.is_available():
+    DEVICE = 'cuda'
+elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+    DEVICE = 'mps'
+else:
+    DEVICE = 'cpu'
 
 model_name = 'shift_sd15_canny'
 model = create_model(f'./models/shiftdm/{model_name}.yaml').cpu()
-model.load_state_dict(load_state_dict('./models/sd/v1-5-pruned.ckpt', location='cuda'), strict=False)
-# model.load_state_dict(load_state_dict(f'./models/shiftdm/{model_name}.pth', location='cuda'), strict=False)
-model = model.cuda()
+model.load_state_dict(load_state_dict('./models/sd/v1-5-pruned.ckpt', location=DEVICE), strict=False)
+# model.load_state_dict(load_state_dict(f'./models/shiftdm/{model_name}.pth', location=DEVICE), strict=False)
+model = model.to(DEVICE)
 ddim_sampler = DDIMSampler(model)
 
 
@@ -45,10 +53,11 @@ def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_res
 
         detected_map = cv2.resize(detected_map, (W, H), interpolation=cv2.INTER_LINEAR)
 
-        shift = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
+        shift = torch.from_numpy(detected_map.copy()).float().to(DEVICE) / 255.0
         shift = torch.stack([shift for _ in range(num_samples)], dim=0)
         shift = einops.rearrange(shift, 'b h w c -> b c h w').clone()
-        shift_rec = model.decode_first_stage(model.get_first_stage_encoding(model.encode_first_stage(shift)))
+        shift_rec = copy.deepcopy(shift)
+        shift_rec = model.decode_first_stage(model.get_shift_stage_encoding(model.encode_shift_stage({'canny':shift_rec})))
         shift_rec = (einops.rearrange(shift_rec, 'b c h w -> b h w c') * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)[0]
         shift = {'canny': shift}
 
@@ -122,5 +131,5 @@ with block:
     run_button.click(fn=process, inputs=ips, outputs=(detected_image, shift_image, result_gallery))
 
 
-block.launch(server_name='0.0.0.0', server_port=8388)
+block.launch(server_port=8388)
 # block.launch()

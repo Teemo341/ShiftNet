@@ -86,7 +86,6 @@ class ShiftLDM(LatentDiffusion):
             x_noisy = x_noisy + z_shift # add shift to make mu constant
 
         model_output = super().apply_model(x_noisy, t, cond, *args, **kwargs)
-        print(x_noisy.mean(), x_noisy.std())
 
         return model_output
     

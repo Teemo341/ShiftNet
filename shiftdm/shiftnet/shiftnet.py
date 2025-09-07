@@ -190,6 +190,7 @@ class ShiftNet_Edge(ShiftNetBase):
         i = 0.
         for key in x_dict:
             z = z+ F.interpolate(x_dict[key][:,:1,:,:], scale_factor=1/8, mode='bilinear', align_corners=False)
+            z = z.repeat(1, 4, 1, 1)
             i+=1
         z = z/i
         return z
