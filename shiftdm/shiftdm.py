@@ -106,6 +106,9 @@ class ShiftLDM(LatentDiffusion):
             cond_ = {key: cond[key] for key in cond if key != 'shift'}
             x_noisy = x_noisy + extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * z_shift # x_start* sqrt_alphas_cumprod, noise*sqrt_one_minus_alphas_cumprod, so shift should be scaled by sqrt_one_minus_alphas_cumprod
         else:
+            if not hasattr(self, '_warned_no_shift'):
+                warnings.warn("No shift condition provided, the model will degenerate to the base model.")
+                self._warned_no_shift = True
             cond_ = cond
         model_output = self.apply_model(x_noisy, t, cond_)
 
