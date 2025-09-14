@@ -116,7 +116,7 @@ with block:
                 shift_strength = gr.Slider(label="Shift Strength", minimum=0.0, maximum=2.0, value=1.0, step=0.01)
                 guess_mode = gr.Checkbox(label='Guess Mode', value=False)
                 detect_resolution = gr.Slider(label="Preprocessor Resolution", minimum=128, maximum=1024, value=512, step=1)
-                ddim_steps = gr.Slider(label="Steps", minimum=1, maximum=100, value=20, step=1)
+                ddim_steps = gr.Slider(label="Steps", minimum=1, maximum=200, value=20, step=1)
                 scale = gr.Slider(label="Guidance Scale", minimum=0.1, maximum=30.0, value=9.0, step=0.1)
                 eta = gr.Slider(label="DDIM ETA", minimum=0.0, maximum=1.0, value=1.0, step=0.01)
                 a_prompt = gr.Textbox(label="Added Prompt", value='best quality')
