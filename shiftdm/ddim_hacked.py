@@ -3,6 +3,7 @@
 import torch
 import numpy as np
 from tqdm import tqdm
+import warnings
 
 from ldm.modules.diffusionmodules.util import make_ddim_sampling_parameters, make_ddim_timesteps, noise_like, extract_into_tensor
 
@@ -149,6 +150,22 @@ class DDIMSampler(object):
         else:
             img = x_T
 
+        if 'shift' in cond and cond['shift'] is not None:
+            z_shift = self.model.get_shift_stage_encoding(self.model.encode_shift_stage(cond['shift']))*self.model.shift_stage_scale # bchw
+            cond_ = {key: cond[key] for key in cond if key != 'shift'} # do not pass shift to the base model
+        else:
+            if not hasattr(self, '_warned_no_shift'):
+                warnings.warn("No shift condition provided, the model will degenerate to the base model.")
+                self._warned_no_shift = True
+            z_shift = torch.zeros_like(img, device=img.device) # no shift provided, use zero shift
+            cond_ = cond
+        if unconditional_conditioning is not None:
+            if 'shift' in unconditional_conditioning and unconditional_conditioning['shift'] is not None:
+                unconditional_conditioning = {key: unconditional_conditioning[key] for key in unconditional_conditioning if key != 'shift'}
+
+        # x_T, add the shift directly to make the expection be shift
+        img = img + z_shift
+
         if timesteps is None:
             timesteps = self.ddpm_num_timesteps if ddim_use_original_steps else self.ddim_timesteps
         elif timesteps is not None and not ddim_use_original_steps:
@@ -175,13 +192,13 @@ class DDIMSampler(object):
                 assert len(ucg_schedule) == len(time_range)
                 unconditional_guidance_scale = ucg_schedule[i]
 
-            outs = self.p_sample_ddim(img, cond, ts, index=index, use_original_steps=ddim_use_original_steps,
+            outs = self.p_sample_ddim(img, cond_, ts, index=index, use_original_steps=ddim_use_original_steps,
                                       quantize_denoised=quantize_denoised, temperature=temperature,
                                       noise_dropout=noise_dropout, score_corrector=score_corrector,
                                       corrector_kwargs=corrector_kwargs,
                                       unconditional_guidance_scale=unconditional_guidance_scale,
                                       unconditional_conditioning=unconditional_conditioning,
-                                      dynamic_threshold=dynamic_threshold)
+                                      dynamic_threshold=dynamic_threshold, z_shift=z_shift)
             img, pred_x0 = outs
             if callback: callback(i)
             if img_callback: img_callback(pred_x0, i)
@@ -196,7 +213,7 @@ class DDIMSampler(object):
     def p_sample_ddim(self, x, c, t, index, repeat_noise=False, use_original_steps=False, quantize_denoised=False,
                       temperature=1., noise_dropout=0., score_corrector=None, corrector_kwargs=None,
                       unconditional_guidance_scale=1., unconditional_conditioning=None,
-                      dynamic_threshold=None):
+                      dynamic_threshold=None, z_shift=None):
         b, *_, device = *x.shape, x.device
 
         if unconditional_conditioning is None or unconditional_guidance_scale == 1.:
@@ -242,7 +259,9 @@ class DDIMSampler(object):
         noise = sigma_t * noise_like(x.shape, device, repeat_noise) * temperature
         if noise_dropout > 0.:
             noise = torch.nn.functional.dropout(noise, p=noise_dropout)
-        x_prev = a_prev.sqrt() * pred_x0 + dir_xt + noise
+        x_prev = a_prev.sqrt() * pred_x0 + dir_xt + noise # Ex_prev = Ex * a_prev.sqrt()* sqrt_alphas_cumprod
+        if z_shift is not None:
+            x_prev = x_prev + z_shift*(1-a_prev.sqrt()*extract_into_tensor(self.model.sqrt_alphas_cumprod, t, x_prev.shape))
         return x_prev, pred_x0
 
     @torch.no_grad()

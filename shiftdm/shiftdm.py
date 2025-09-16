@@ -4,6 +4,7 @@ import einops
 import torch
 import numpy as np
 import copy
+from functools import partial
 import warnings
 
 from torch.optim.lr_scheduler import LambdaLR
@@ -42,7 +43,7 @@ class ShiftLDM(LatentDiffusion):
             betas = make_beta_schedule(beta_schedule, timesteps, linear_start=linear_start, linear_end=linear_end,
                                        cosine_s=cosine_s)
         alphas = 1. - betas
-        to_torch = lambda x: x.clone().detach().to(torch.float32).to(self.model.device)
+        to_torch = partial(torch.tensor, dtype=torch.float32)
         # shift calibrate scale
         shift_calibrate_scale = 1.0 - 1.0/np.sqrt(alphas)
         self.register_buffer('shift_calibrate_scale', to_torch(shift_calibrate_scale))
@@ -79,23 +80,27 @@ class ShiftLDM(LatentDiffusion):
         return [z, c]
 
     def p_mean_variance(self, x, c, t, *args, **kwargs):
+        b, *_, device = *x.shape, x.device
         if 'shift' in c and c['shift'] is not None:
             z_shift = self.get_shift_stage_encoding(self.encode_shift_stage(c['shift']))*self.shift_stage_scale # bchw
             c_ = {key: c[key] for key in c if key != 'shift'} # do not pass shift to the base model
-
-            if t == self.num_timesteps - 1: # x_T, add the shift directly to make the expection be shift
-                x = x + z_shift
-
-            # x_t is already shifted, but the x_{t-1} should be calibrated
-            results = super().p_mean_variance(x, c_, t, *args, **kwargs) # (model_mean, ...)
-            shift_calibrate_scale = extract_into_tensor(self.shift_calibrate_scale, t, x.shape) # bchw
-            model_mean = results[0] + z_shift * shift_calibrate_scale # calibrated mean to be E(x0)
-            results = (model_mean, ) + results[1:] # keep the rest results unchanged
         else:
             if not hasattr(self, '_warned_no_shift'):
                 warnings.warn("No shift condition provided, the model will degenerate to the base model.")
                 self._warned_no_shift = True
-            results = super().p_mean_variance(x, c, t, *args, **kwargs)
+            z_shift = torch.zeros_like(x, device=x.device) # no shift provided, use zero shift
+            c_ = c
+
+        # x_T, add the shift directly to make the expection be shift
+        shift_mask = ((t == (self.num_timesteps - 1)).float()).reshape(b, *((1,) * (len(x.shape) - 1))) # b111
+        x = x + z_shift*shift_mask
+
+        # x_t is already shifted, but the x_{t-1} should be calibrated
+        results = super().p_mean_variance(x, c_, t, *args, **kwargs) # (model_mean, ...)
+        shift_calibrate_scale = extract_into_tensor(self.shift_calibrate_scale, t, x.shape) # bchw
+        model_mean = results[0] + z_shift * shift_calibrate_scale # calibrated mean to be E(x0)
+        results = (model_mean, ) + results[1:] # keep the rest results unchanged
+
         return results
     
     def p_losses(self, x_start, cond, t, noise=None): # adapt from ldm
@@ -221,9 +226,13 @@ class ShiftLDM(LatentDiffusion):
     
     @torch.no_grad()
     def sample_log(self, cond, batch_size, ddim, ddim_steps, **kwargs):
-        ddim_sampler = DDIMSampler(self)
-        shape = (self.channels, self.image_size, self.image_size)
-        samples, intermediates = ddim_sampler.sample(ddim_steps, batch_size, shape, cond, verbose=False, **kwargs)
+        if ddim:
+            ddim_sampler = DDIMSampler(self)
+            shape = (self.channels, self.image_size, self.image_size)
+            samples, intermediates = ddim_sampler.sample(ddim_steps, batch_size, shape, cond, verbose=False, **kwargs)
+        else:
+            samples, intermediates = self.sample(cond=cond, batch_size=batch_size, return_intermediates=True, **kwargs)
+
         return samples, intermediates
 
     def configure_optimizers(self):

@@ -172,26 +172,17 @@ class ShiftNet_Edge(ShiftNetBase):
        # edges is 1, background is 0, so 0 not shift, 1 shift
         return x_dict
     
-    # def encode(self, x_dict: dict, first_stage_model: pl.LightningModule = None, preprocess=True):
-    #     if self.x_mean is None:
-    #         x_dict_ = copy.deepcopy(x_dict)
-    #         z = super().encode(x_dict_, first_stage_model, preprocess=False)[0:1] # 1chw
-    #         zero = torch.zeros_like(z, device=z.device)
-    #         self.x_mean = self.decode(zero, first_stage_model).detach()
-    #         print("set x_mean for edge encoder")
-
-    #     # for key in x_dict:
-    #     #     x_dict[key] = torch.clip(x_dict[key] + self.x_mean, -1.0, 1.0) # add shit to x_mean, so besides edges the latent is 0
-    #     z = super().encode(x_dict, first_stage_model, preprocess = False)
-    #     return z
-
     def encode(self, x_dict: dict, first_stage_model: pl.LightningModule = None, preprocess=True):
-        z = 0.
-        i = 0.
-        for key in x_dict:
-            z = z+ F.interpolate(x_dict[key][:,:1,:,:], scale_factor=1/8, mode='bilinear', align_corners=False)
-            z = z.repeat(1, 4, 1, 1)
-            i+=1
-        z = z/i
+        z = super().encode(x_dict, first_stage_model, preprocess = False)
         return z
+
+    # def encode(self, x_dict: dict, first_stage_model: pl.LightningModule = None, preprocess=True):
+    #     z = 0.
+    #     i = 0.
+    #     for key in x_dict:
+    #         z = z+ F.interpolate(x_dict[key][:,:1,:,:], scale_factor=1/8, mode='bilinear')
+    #         z = z.repeat(1, 4, 1, 1)
+    #         i+=1
+    #     z = z/i
+    #     return z
         

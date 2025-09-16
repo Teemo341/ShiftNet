@@ -9,6 +9,7 @@ import random
 import copy
 
 from pytorch_lightning import seed_everything
+import torch.nn.functional as F
 from annotator.util import resize_image, HWC3
 from annotator.canny import CannyDetector
 from shiftdm.model import create_model, load_state_dict
@@ -34,6 +35,7 @@ ddim_sampler = DDIMSampler(model)
 
 def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, shift_strength, scale, seed, eta, low_threshold, high_threshold):
     global preprocessor
+    model.shift_stage_scale = shift_strength
 
     if det == 'Canny':
         if not isinstance(preprocessor, CannyDetector):
@@ -57,8 +59,11 @@ def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_res
         shift = torch.stack([shift for _ in range(num_samples)], dim=0)
         shift = einops.rearrange(shift, 'b h w c -> b c h w').clone()
         shift_rec = copy.deepcopy(shift)
-        shift_rec = model.decode_first_stage(model.get_shift_stage_encoding(model.encode_shift_stage({'canny':shift_rec})))
+        shift_rec = model.get_shift_stage_encoding(model.encode_shift_stage({'canny':shift_rec}))*model.shift_stage_scale
+        shift_rec = model.decode_first_stage(shift_rec)
         shift_rec = (einops.rearrange(shift_rec, 'b c h w -> b h w c') * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)[0]
+        # shift_rec = F.interpolate(shift_rec, scale_factor=8, mode='bilinear')[:,:3,:,:]
+        # shift_rec = (einops.rearrange(shift_rec, 'b c h w -> b h w c') * 255).cpu().numpy().clip(0, 255).astype(np.uint8)[0]
         shift = {'canny': shift}
 
         if seed == -1:
@@ -80,12 +85,14 @@ def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_res
 
         # model.control_scales = [strength * (0.825 ** float(12 - i)) for i in range(13)] if guess_mode else ([strength] * 13)
         # Magic number. IDK why. Perhaps because 0.825**12<0.01 but 0.826**12>0.01
-        model.shift_stage_scale = shift_strength
 
-        samples, intermediates = ddim_sampler.sample(ddim_steps, num_samples,
+        if ddim_steps > 0:
+            samples, intermediates = ddim_sampler.sample(ddim_steps, num_samples,
                                                      shape, cond, verbose=False, eta=eta,
                                                      unconditional_guidance_scale=scale,
                                                      unconditional_conditioning=un_cond)
+        else:
+            samples, intermediates = model.sample(cond, num_samples, ddim=False, unconditional_guidance_scale=scale, unconditional_conditioning=un_cond)
 
         if share.save_memory:
             model.low_vram_shift(is_diffusing=False)
@@ -131,5 +138,5 @@ with block:
     run_button.click(fn=process, inputs=ips, outputs=(detected_image, shift_image, result_gallery))
 
 
-block.launch(server_port=8388)
-# block.launch()
+# block.launch(server_port=8389)
+block.launch()
