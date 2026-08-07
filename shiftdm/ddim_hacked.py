@@ -151,7 +151,7 @@ class DDIMSampler(object):
             img = x_T
 
         if 'shift' in cond and cond['shift'] is not None:
-            z_shift = self.model.get_shift_stage_encoding(self.model.encode_shift_stage(cond['shift']))*self.model.shift_stage_scale # bchw
+            z_shift = self.model.get_shift_stage_encoding(self.model.encode_shift_stage(cond['shift'])) # bchw
             cond_ = {key: cond[key] for key in cond if key != 'shift'} # do not pass shift to the base model
         else:
             if not hasattr(self, '_warned_no_shift'):

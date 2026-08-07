@@ -35,7 +35,11 @@ ddim_sampler = DDIMSampler(model)
 
 def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, shift_strength, scale, seed, eta, low_threshold, high_threshold):
     global preprocessor
-    model.shift_stage_scale = shift_strength
+
+    # None mode: force shift_strength to 0, no shift at all
+    if det == 'None':
+        shift_strength = 0.0
+    model.shift_strength = shift_strength
 
     if det == 'Canny':
         if not isinstance(preprocessor, CannyDetector):
@@ -44,11 +48,13 @@ def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_res
     with torch.no_grad():
         input_image = HWC3(input_image)
 
-        if det == 'None':
-            detected_map = input_image.copy()
-        else:
+        if det == 'Canny':
             detected_map = preprocessor(resize_image(input_image, detect_resolution), low_threshold, high_threshold)
             detected_map = HWC3(detected_map)
+        else:
+            # Original: use input image directly as canny map
+            # None: also use input image (won't matter since shift_strength=0)
+            detected_map = input_image.copy()
 
         img = resize_image(input_image, image_resolution)
         H, W, C = img.shape
@@ -58,10 +64,11 @@ def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_res
         shift = torch.from_numpy(detected_map.copy()).float().to(DEVICE) / 255.0
         shift = torch.stack([shift for _ in range(num_samples)], dim=0)
         shift = einops.rearrange(shift, 'b h w c -> b c h w').clone()
-        shift_rec = copy.deepcopy(shift)
-        shift_rec = model.get_shift_stage_encoding(model.encode_shift_stage({'canny':shift_rec}))*model.shift_stage_scale
-        shift_rec = model.decode_first_stage(shift_rec)
-        shift_rec = (einops.rearrange(shift_rec, 'b c h w -> b h w c') * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)[0]
+        if det != 'None':
+            shift_rec = copy.deepcopy(shift)
+            shift_rec = model.get_shift_stage_encoding(model.encode_shift_stage({'canny':shift_rec}))*model.shift_strength
+            shift_rec = model.decode_first_stage(shift_rec)
+            shift_rec = (einops.rearrange(shift_rec, 'b c h w -> b h w c') * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)[0]
         # shift_rec = F.interpolate(shift_rec, scale_factor=8, mode='bilinear')[:,:3,:,:]
         # shift_rec = (einops.rearrange(shift_rec, 'b c h w -> b h w c') * 255).cpu().numpy().clip(0, 255).astype(np.uint8)[0]
         shift = {'canny': shift}
@@ -101,6 +108,8 @@ def process(det, input_image, prompt, a_prompt, n_prompt, num_samples, image_res
         x_samples = (einops.rearrange(x_samples, 'b c h w -> b h w c') * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)
 
         results = [x_samples[i] for i in range(num_samples)]
+    if det == 'None':
+        return None, None, results
     return detected_map, shift_rec, results
 
 
@@ -115,7 +124,7 @@ with block:
             run_button = gr.Button(value="Run")
             num_samples = gr.Slider(label="Images", minimum=1, maximum=12, value=1, step=1)
             seed = gr.Slider(label="Seed", minimum=-1, maximum=2147483647, step=1, value=12345)
-            det = gr.Radio(choices=["Canny", "None"], type="value", value="Canny", label="Preprocessor")
+            det = gr.Radio(choices=["Canny", "Original", "None"], type="value", value="Canny", label="Preprocessor")
             with gr.Accordion("Advanced options", open=False):
                 low_threshold = gr.Slider(label="Canny low threshold", minimum=1, maximum=255, value=100, step=1)
                 high_threshold = gr.Slider(label="Canny high threshold", minimum=1, maximum=255, value=200, step=1)
@@ -123,7 +132,7 @@ with block:
                 shift_strength = gr.Slider(label="Shift Strength", minimum=0.0, maximum=2.0, value=1.0, step=0.01)
                 guess_mode = gr.Checkbox(label='Guess Mode', value=False)
                 detect_resolution = gr.Slider(label="Preprocessor Resolution", minimum=128, maximum=1024, value=512, step=1)
-                ddim_steps = gr.Slider(label="Steps", minimum=1, maximum=200, value=20, step=1)
+                ddim_steps = gr.Slider(label="Steps", minimum=0, maximum=200, value=20, step=1)
                 scale = gr.Slider(label="Guidance Scale", minimum=0.1, maximum=30.0, value=9.0, step=0.1)
                 eta = gr.Slider(label="DDIM ETA", minimum=0.0, maximum=1.0, value=1.0, step=0.01)
                 a_prompt = gr.Textbox(label="Added Prompt", value='best quality')

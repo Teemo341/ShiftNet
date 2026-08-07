@@ -20,7 +20,7 @@ class ShiftNetBase(pl.LightningModule):
                  learning_rate=1e-5):
         super().__init__()
         self.instantiate_encoder(encoder_config)
-        self.use_frist_stage = use_first_stage
+        self.use_first_stage = use_first_stage
         self.instantiate_first_stage(first_stage_config)
         self.encoder_keys = self.encoder.encode_keys if hasattr(self.encoder, 'encode_keys') else [self.encoder.encode_key]
         self.target_key = target_key
@@ -78,7 +78,7 @@ class ShiftNetBase(pl.LightningModule):
         """
         if preprocess:
             x_dict = self.preprocess_input(x_dict) # {bchw} [-1, 1]
-        if self.use_frist_stage:
+        if self.use_first_stage:
             assert first_stage_model is not None, "first_stage_model must be provided when use_first_stage is True"
             with torch.no_grad():
                 for key in x_dict:
@@ -165,15 +165,15 @@ class ShiftNet_Edge(ShiftNetBase):
         super().__init__(target_key, encoder_config, use_first_stage, first_stage_config, ckpt_path, ignore_keys, learning_rate)
         self.x_mean = None # the x correspeinding to 0 latnet, used to shift only the edge areas
 
-    def preprocess_input(self, x_dict: dict):
-        """ sd input is [-1,1], but contorl condition is [0,1], so shift condition is also [0,1]
-            you may add other operations
-        """
-       # edges is 1, background is 0, so 0 not shift, 1 shift
-        return x_dict
+    # def preprocess_input(self, x_dict: dict):
+    #     """ sd input is [-1,1], but contorl condition is [0,1], so shift condition is also [0,1]
+    #         you may add other operations
+    #     """
+    #    # edges is 1, background is 0, by not change to [-1, 1], the background will be 0, and the edge will be 1, so the background is mean
+    #     return x_dict
     
     def encode(self, x_dict: dict, first_stage_model: pl.LightningModule = None, preprocess=True):
-        z = super().encode(x_dict, first_stage_model, preprocess = False)
+        z = super().encode(x_dict, first_stage_model, preprocess)
         return z
 
     # def encode(self, x_dict: dict, first_stage_model: pl.LightningModule = None, preprocess=True):

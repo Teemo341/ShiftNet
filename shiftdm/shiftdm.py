@@ -23,7 +23,7 @@ class ShiftLDM(LatentDiffusion):
     """ ShiftNet can inherit any diffusion model
         some may have different implementations, but it would be easy to adapt"""
 
-    def __init__(self, shift_stage_config, shift_stage_key: List[str] = [], shift_stage_scale: float = 1.0, parent_model = 'ldm', base_locked: bool = True, *args, **kwargs):
+    def __init__(self, shift_stage_config, shift_stage_key: List[str] = [], shift_strength: float = 1.0, parent_model = 'ldm', base_locked: bool = True, *args, **kwargs):
         assert parent_model in parent_diffusers, f"parent model must be one of {list(parent_diffusers.keys())}"
         if parent_model != 'ldm':
             self.__class__.__bases__ = (parent_diffusers[parent_model],)  # change the parent class to the specified model
@@ -31,12 +31,13 @@ class ShiftLDM(LatentDiffusion):
         self.instantiate_shift_stage(shift_stage_config)
         self.shift_stage_key = shift_stage_key
         assert len(self.shift_stage_key) > 0, "at least one shift stage key is required"
-        self.shift_stage_scale = shift_stage_scale
+        self.shift_strength = shift_strength
         self.base_locked = base_locked
 
     def register_schedule(self, given_betas=None, beta_schedule="linear", timesteps=1000,
                           linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3):
         super().register_schedule(given_betas, beta_schedule, timesteps, linear_start, linear_end, cosine_s)
+        #todo make your own schedule for shift stage, will be multiplied with the base model schedule
         if exists(given_betas):
             betas = given_betas
         else:
@@ -79,42 +80,39 @@ class ShiftLDM(LatentDiffusion):
             c['shift'] = None
         return [z, c]
 
+    def split_shift_condition(self, cond):
+        assert 'shift' in cond, "shift condition is not in the cond dict, current cond keys: {}".format(list(cond.keys()))
+        assert cond['shift'] is not None, "shift condition is None, cannot split"
+        z_shift = self.get_shift_stage_encoding(self.encode_shift_stage(cond['shift']))
+        cond_ = {key: cond[key] for key in cond if key != 'shift'}
+        return cond_, z_shift
+    
+    #! the core shift function
+    def add_shift_condition(self, x, z_shift, t, sqrt_alphas_cumprod=None):
+        """add shift condition to x, calibrated by x_scale and shift_calibrate_scale"""
+        sqrt_alphas_cumprod = default(sqrt_alphas_cumprod, self.sqrt_alphas_cumprod)
+        x_scale = extract_into_tensor(sqrt_alphas_cumprod, t, x.shape) # bchw, the original scale of x, used to calibrate the shift scale to the same scale as x
+        x = x + z_shift * self.shift_strength * x_scale # calibrated shift to be added to x, so that the model can learn to denoise the shift as well
+
+        return x
+
     def p_mean_variance(self, x, c, t, *args, **kwargs):
         b, *_, device = *x.shape, x.device
-        if 'shift' in c and c['shift'] is not None:
-            z_shift = self.get_shift_stage_encoding(self.encode_shift_stage(c['shift']))*self.shift_stage_scale # bchw
-            c_ = {key: c[key] for key in c if key != 'shift'} # do not pass shift to the base model
-        else:
-            if not hasattr(self, '_warned_no_shift'):
-                warnings.warn("No shift condition provided, the model will degenerate to the base model.")
-                self._warned_no_shift = True
-            z_shift = torch.zeros_like(x, device=x.device) # no shift provided, use zero shift
-            c_ = c
+        c_, z_shift = self.split_shift_condition(c) # split the shift condition from the cond dict
 
-        # x_T, add the shift directly to make the expection be shift
-        shift_mask = ((t == (self.num_timesteps - 1)).float()).reshape(b, *((1,) * (len(x.shape) - 1))) # b111
-        x = x + z_shift*shift_mask
+        # add shift
+        x = self.add_shift_condition(x, z_shift, t)
 
-        # x_t is already shifted, but the x_{t-1} should be calibrated
-        results = super().p_mean_variance(x, c_, t, *args, **kwargs) # (model_mean, ...)
-        shift_calibrate_scale = extract_into_tensor(self.shift_calibrate_scale, t, x.shape) # bchw
-        model_mean = results[0] + z_shift * shift_calibrate_scale # calibrated mean to be E(x0)
-        results = (model_mean, ) + results[1:] # keep the rest results unchanged
-
+        results = super().p_mean_variance(x, c_, t, *args, **kwargs)
         return results
     
     def p_losses(self, x_start, cond, t, noise=None): # adapt from ldm
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        if 'shift' in cond and cond['shift'] is not None:
-            z_shift = self.get_shift_stage_encoding(self.encode_shift_stage(cond['shift']))*self.shift_stage_scale
-            cond_ = {key: cond[key] for key in cond if key != 'shift'}
-            x_noisy = x_noisy + extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * z_shift # x_start* sqrt_alphas_cumprod, noise*sqrt_one_minus_alphas_cumprod, so shift should be scaled by sqrt_one_minus_alphas_cumprod
-        else:
-            if not hasattr(self, '_warned_no_shift'):
-                warnings.warn("No shift condition provided, the model will degenerate to the base model.")
-                self._warned_no_shift = True
-            cond_ = cond
+        cond_, z_shift = self.split_shift_condition(cond) # split the shift condition from the cond dict
+        x_noisy = self.add_shift_condition(x_noisy, z_shift, t) # add shift to the noisy input
+
+        # the rest is the same as the original p_losses, but with cond_ instead of cond
         model_output = self.apply_model(x_noisy, t, cond_)
 
         loss_dict = {}
@@ -152,6 +150,43 @@ class ShiftLDM(LatentDiffusion):
     @torch.no_grad()
     def get_unconditional_conditioning(self, N):
         return self.get_learned_conditioning([""] * N)
+
+    @staticmethod
+    def _slice_cond(cond, batch_size):
+        """Recursively slice tensors in cond dict to batch_size."""
+        if isinstance(cond, dict):
+            return {key: ShiftLDM._slice_cond(cond[key], batch_size) for key in cond}
+        elif isinstance(cond, list):
+            return [ShiftLDM._slice_cond(c, batch_size) for c in cond]
+        elif isinstance(cond, torch.Tensor):
+            return cond[:batch_size]
+        else:
+            return cond
+
+    @torch.no_grad()
+    def sample(self, cond, batch_size=16, return_intermediates=False, x_T=None,
+                verbose=True, timesteps=None, quantize_denoised=False,
+                mask=None, x0=None, shape=None, **kwargs):
+        if shape is None:
+            shape = (batch_size, self.channels, self.image_size, self.image_size)
+        if cond is not None:
+            cond = self._slice_cond(cond, batch_size)
+        return self.p_sample_loop(cond,
+                                    shape,
+                                    return_intermediates=return_intermediates, x_T=x_T,
+                                    verbose=verbose, timesteps=timesteps, quantize_denoised=quantize_denoised,
+                                    mask=mask, x0=x0)
+    
+    @torch.no_grad()
+    def sample_log(self, cond, batch_size, ddim, ddim_steps, **kwargs):
+        if ddim:
+            ddim_sampler = DDIMSampler(self)
+            shape = (self.channels, self.image_size, self.image_size)
+            samples, intermediates = ddim_sampler.sample(ddim_steps, batch_size, shape, cond, verbose=False, **kwargs)
+        else:
+            samples, intermediates = self.sample(cond=cond, batch_size=batch_size, return_intermediates=True, **kwargs)
+
+        return samples, intermediates
 
     @torch.no_grad()
     def log_images(self, batch, N=8, n_row=4, sample=True, ddim_steps=50, ddim_eta=0.0, return_keys=None,
@@ -198,16 +233,9 @@ class ShiftLDM(LatentDiffusion):
                                                      ddim_steps=ddim_steps, eta=ddim_eta)
             x_samples = self.decode_first_stage(samples)
             log["samples"] = x_samples
-            if exists(c["shift"]) and c["shift"] is not None:
-                x_samples = self.decode_first_stage(samples+c['shift']*self.shift_stage_scale) # check if the shift is added to the sample
-                log["samples_shift"] = x_samples
             if plot_denoise_rows:
                 denoise_grid = self._get_denoise_row_from_list(z_denoise_row)
                 log["denoise_row"] = denoise_grid
-                if exists(c["shift"]) and c["shift"] is not None:
-                    z_denoise_row = [z + c["shift"] * self.shift_stage_scale for z in z_denoise_row]  # add shift to the denoise row
-                    denoise_grid = self._get_denoise_row_from_list(z_denoise_row)
-                    log["denoise_row_shift"] = denoise_grid
 
         if unconditional_guidance_scale > 1.0:
             uc_cross = self.get_unconditional_conditioning(N)
@@ -223,17 +251,6 @@ class ShiftLDM(LatentDiffusion):
             log[f"samples_cfg_scale_{unconditional_guidance_scale:.2f}"] = x_samples_cfg
 
         return log
-    
-    @torch.no_grad()
-    def sample_log(self, cond, batch_size, ddim, ddim_steps, **kwargs):
-        if ddim:
-            ddim_sampler = DDIMSampler(self)
-            shape = (self.channels, self.image_size, self.image_size)
-            samples, intermediates = ddim_sampler.sample(ddim_steps, batch_size, shape, cond, verbose=False, **kwargs)
-        else:
-            samples, intermediates = self.sample(cond=cond, batch_size=batch_size, return_intermediates=True, **kwargs)
-
-        return samples, intermediates
 
     def configure_optimizers(self):
         lr = self.learning_rate
